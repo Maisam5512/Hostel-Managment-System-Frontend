@@ -10,14 +10,19 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [token, setToken] = useState(localStorage.getItem('token'));
 
+  // Check if user is authenticated
+  const isAuthenticated = !!token;
+
   useEffect(() => {
     const initAuth = async () => {
       if (token) {
         try {
-          const userData = await authService.getProfile(token);
+          // Fetch user profile
+          const userData = await authService.getProfile();
           setUser(userData);
         } catch (error) {
           console.error('Failed to fetch user profile:', error);
+          // If token is invalid, clear it
           logout();
         }
       }
@@ -30,24 +35,23 @@ export const AuthProvider = ({ children }) => {
   const login = async (email, password) => {
     try {
       const response = await authService.login(email, password);
-      const { token, user } = response;
+      const { token: authToken, user: userData } = response;
       
-      localStorage.setItem('token', token);
-      setToken(token);
-      setUser(user);
+      localStorage.setItem('token', authToken);
+      setToken(authToken);
       
-      return { success: true, user };
+      // Note: login response has user with string role (code)
+      // We'll fetch full profile separately
+      const fullUserProfile = await authService.getProfile();
+      setUser(fullUserProfile);
+      
+      return { success: true, user: fullUserProfile };
     } catch (error) {
-      return { success: false, error: error.message };
-    }
-  };
-
-  const signup = async (userData) => {
-    try {
-      const response = await authService.signup(userData);
-      return { success: true, data: response };
-    } catch (error) {
-      return { success: false, error: error.message };
+      console.error('Login error:', error);
+      return { 
+        success: false, 
+        error: error.message || 'Login failed. Please check your credentials.' 
+      };
     }
   };
 
@@ -55,6 +59,8 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem('token');
     setToken(null);
     setUser(null);
+    // Optional: Redirect to login
+    window.location.href = '/login';
   };
 
   const value = {
@@ -62,9 +68,8 @@ export const AuthProvider = ({ children }) => {
     token,
     loading,
     login,
-    signup,
     logout,
-    isAuthenticated: !!token,
+    isAuthenticated,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
