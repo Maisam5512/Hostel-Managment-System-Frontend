@@ -9,6 +9,7 @@ import { feeService } from '../services/feeService';
 
 const Dashboard = () => {
   const { user, loading: authLoading } = useAuthHook();
+  const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
     totalRooms: 0,
     availableRooms: 0,
@@ -16,47 +17,73 @@ const Dashboard = () => {
     occupiedBeds: 0,
     totalMembers: 0,
     activeMembers: 0,
-    totalCollected: 124500,
-    outstandingBalance: 18200,
+    totalCollected: 0,
+    outstandingBalance: 0,
   });
-  const [loading, setLoading] = useState(true);
-  const [recentCollections, setRecentCollections] = useState([
+
+  const [recentCollections] = useState([
     { id: '#REC-9921', name: 'Aadit Sharma', room: '102', date: 'Jan 20, 2026', amount: '₹8,500', status: 'Paid' },
     { id: '#REC-9922', name: 'Usman Khan', room: '204', date: 'Jan 19, 2026', amount: '₹4,000', status: 'Partial' },
     { id: '#REC-9923', name: 'Hamza Ali', room: '108', date: 'Jan 18, 2026', amount: '₹8,500', status: 'Paid' },
   ]);
 
-  useEffect(() => {
-    fetchDashboardData();
-  }, []);
-
+  // 1. Pehle Functions define karein (Hoisting fix)
   const fetchDashboardData = async () => {
     try {
-      setLoading(true);
-      
       const roomsResponse = await roomService.getAllRooms();
       const totalRooms = roomsResponse?.count || 0;
       const availableRooms = roomsResponse?.data?.filter(room => room.status === 'AVAILABLE').length || 0;
-      
+
       const bedsResponse = await bedService.getAllBeds();
       const totalBeds = bedsResponse?.count || 0;
       const occupiedBeds = bedsResponse?.data?.filter(bed => bed.status === 'OCCUPIED').length || 0;
-      
-      setStats({
-        ...stats,
+
+      setStats(prev => ({
+        ...prev,
         totalRooms,
         availableRooms,
         totalBeds,
         occupiedBeds,
-        totalMembers: 120,
+        totalMembers: 120, // Mock data
         activeMembers: 110,
-      });
+      }));
     } catch (error) {
-      console.error('Error fetching dashboard data:', error);
-    } finally {
-      setLoading(false);
+      console.error('Error fetching room/bed data:', error);
     }
   };
+
+  const fetchFeeStats = async () => {
+    try {
+      // In real app: const response = await feeService.getFeeSummary();
+      const mockStats = {
+        totalCollected: 124500,
+        outstandingBalance: 18200,
+      };
+
+      setStats(prev => ({
+        ...prev,
+        totalCollected: mockStats.totalCollected,
+        outstandingBalance: mockStats.outstandingBalance
+      }));
+    } catch (error) {
+      console.error('Error fetching fee stats:', error);
+    }
+  };
+
+  // 2. Phir useEffect call karein
+  useEffect(() => {
+    const loadAllStats = async () => {
+      setLoading(true);
+      // Dono API calls parallel chalengi
+      await Promise.all([
+        fetchDashboardData(),
+        fetchFeeStats()
+      ]);
+      setLoading(false);
+    };
+
+    loadAllStats();
+  }, []);
 
   if (authLoading || loading) {
     return <LoadingSpinner />;
@@ -76,42 +103,13 @@ const Dashboard = () => {
     { title: 'Reports', description: 'Generate system reports', icon: '📊', link: '/reports' },
   ];
 
-  // Add this function in the Dashboard component
-const fetchFeeStats = async () => {
-  try {
-    // In real app: const response = await feeService.getFeeSummary();
-    const mockStats = {
-      totalCollected: 124500,
-      outstandingBalance: 18200,
-      pendingPayments: 8,
-      thisMonthCollection: 45000
-    };
-    
-    setStats(prev => ({
-      ...prev,
-      totalCollected: mockStats.totalCollected,
-      outstandingBalance: mockStats.outstandingBalance
-    }));
-  } catch (error) {
-    console.error('Error fetching fee stats:', error);
-  }
-};
-
-// Call fetchFeeStats in your useEffect
-useEffect(() => {
-  fetchDashboardData();
-  fetchFeeStats(); // Add this line
-}, []);
-
   return (
     <Layout>
-      {/* Dashboard Header */}
       <div className="mb-3">
         <h2 className="text-dark mb-1">2026 Dashboard Overview</h2>
         <p className="text-muted mb-3">Welcome back, {user?.fullName || 'Admin'}!</p>
       </div>
 
-      {/* Stats Cards */}
       <Row className="g-3 mb-3">
         {statsCards.map((stat, index) => (
           <Col md={3} key={index}>
@@ -134,9 +132,7 @@ useEffect(() => {
       </Row>
 
       <Row className="g-2">
-        {/* Left Column - Features */}
         <Col lg={8}>
-          {/* Feature Cards */}
           <Card className="border-0 shadow-sm mb-2">
             <Card.Body className="p-2">
               <h5 className="text-dark mb-2">Quick Access</h5>
@@ -160,7 +156,6 @@ useEffect(() => {
             </Card.Body>
           </Card>
 
-          {/* Recent Fee Collections Table */}
           <Card className="border-0 shadow-sm">
             <Card.Body className="p-2">
               <div className="d-flex justify-content-between align-items-center mb-2">
@@ -169,7 +164,6 @@ useEffect(() => {
                   <span className="me-1">📅</span> Last 7 days
                 </Badge>
               </div>
-              
               <div className="table-responsive">
                 <Table hover className="mb-0 small">
                   <thead className="bg-light">
@@ -208,9 +202,7 @@ useEffect(() => {
           </Card>
         </Col>
 
-        {/* Right Column - Financial Summary */}
         <Col lg={4}>
-          {/* Outstanding Balance */}
           <Card className="border-0 shadow-sm mb-2">
             <Card.Body className="p-2">
               <div className="d-flex justify-content-between align-items-center mb-2">
@@ -219,15 +211,12 @@ useEffect(() => {
               </div>
               <h2 className="text-danger mb-1">₹{stats.outstandingBalance.toLocaleString()}</h2>
               <p className="text-muted small mb-2">8 members pending payment</p>
-              <div>
-                <button className="btn btn-sm btn-outline-danger w-100 py-1">
-                  Send Reminders
-                </button>
-              </div>
+              <button className="btn btn-sm btn-outline-danger w-100 py-1">
+                Send Reminders
+              </button>
             </Card.Body>
           </Card>
 
-          {/* Quick Stats */}
           <Card className="border-0 shadow-sm mb-2">
             <Card.Body className="p-2">
               <h6 className="text-dark mb-2">System Status</h6>
@@ -239,34 +228,16 @@ useEffect(() => {
                 <span className="text-muted">API Services</span>
                 <Badge bg="success" className="py-1 px-2">Online</Badge>
               </div>
-              <div className="d-flex justify-content-between mb-1 small">
-                <span className="text-muted">Uptime</span>
-                <span className="fw-bold">99.8%</span>
-              </div>
-              <div className="d-flex justify-content-between small">
-                <span className="text-muted">Active Sessions</span>
-                <span className="fw-bold">3</span>
-              </div>
             </Card.Body>
           </Card>
 
-          {/* Quick Actions */}
           <Card className="border-0 shadow-sm">
             <Card.Body className="p-2">
               <h6 className="text-dark mb-2">Quick Actions</h6>
               <div className="d-grid gap-1">
-                <button className="btn btn-outline-orange py-1">
-                  <span className="me-1">➕</span> Add New Member
-                </button>
-                <button className="btn btn-outline-orange py-1">
-                  <span className="me-1">🏠</span> Allocate Room
-                </button>
-                <button className="btn btn-outline-orange py-1">
-                  <span className="me-1">💰</span> Collect Fee
-                </button>
-                <button className="btn btn-outline-orange py-1">
-                  <span className="me-1">📊</span> Generate Report
-                </button>
+                <button className="btn btn-outline-dark py-1 text-start px-2">➕ Add Member</button>
+                <button className="btn btn-outline-dark py-1 text-start px-2">🏠 Allocate Room</button>
+                <button className="btn btn-outline-dark py-1 text-start px-2">💰 Collect Fee</button>
               </div>
             </Card.Body>
           </Card>

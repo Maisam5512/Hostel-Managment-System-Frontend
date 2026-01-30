@@ -555,20 +555,19 @@ const Members = () => {
                                   <div className="me-2">
                                     <div className="bg-orange text-white rounded-circle d-flex align-items-center justify-content-center" 
                                       style={{ width: '36px', height: '36px' }}>
-                                      {member.user?.fullName?.charAt(0).toUpperCase() || 'M'}
+                                      {member?.fullName?.charAt(0).toUpperCase() || 'M'}
                                     </div>
                                   </div>
                                   <div>
-                                    <div className="fw-bold">{member.user?.fullName || 'Unknown'}</div>
-                                    <div className="small text-muted">{member.user?.email || 'No email'}</div>
-                                    <div className="small text-muted">Father: {member.fatherName || 'N/A'}</div>
+                                    <div className="fw-bold">{member.fullName || 'Unknown'}</div>
+                                    <div className="small text-muted">Guardian: {member.guardianName || 'N/A'}</div>
                                   </div>
                                 </div>
                               </td>
                               <td>
                                 <div>
                                   <Badge bg="secondary" className="px-2 py-1 mb-1">
-                                    {member.registrationNumber || 'N/A'}
+                                    {member.memberCode || 'N/A'}
                                   </Badge>
                                   <div className="small text-muted">CNIC: {member.cnic || 'N/A'}</div>
                                 </div>
@@ -578,7 +577,7 @@ const Members = () => {
                                   <div>{member.phone || 'N/A'}</div>
                                   <div className="small text-muted">
                                     {member.emergencyContact?.name ? 
-                                      `Emergency: ${member.emergencyContact.name} (${member.emergencyContact.relation})` : 
+                                      `Emergency: ${member.guardianName} (${member.emergencyContact.relation})` : 
                                       'No emergency contact'}
                                   </div>
                                 </div>
