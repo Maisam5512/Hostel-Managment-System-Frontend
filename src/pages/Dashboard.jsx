@@ -5,6 +5,7 @@ import { useAuthHook } from '../hooks/useAuth';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import { roomService } from '../services/roomService';
 import { bedService } from '../services/bedService';
+import { feeService } from '../services/feeService';
 
 const Dashboard = () => {
   const { user, loading: authLoading } = useAuthHook();
@@ -74,6 +75,33 @@ const Dashboard = () => {
     { title: 'Fee Collection', description: 'Collect and track payments', icon: '💰', link: '/fees' },
     { title: 'Reports', description: 'Generate system reports', icon: '📊', link: '/reports' },
   ];
+
+  // Add this function in the Dashboard component
+const fetchFeeStats = async () => {
+  try {
+    // In real app: const response = await feeService.getFeeSummary();
+    const mockStats = {
+      totalCollected: 124500,
+      outstandingBalance: 18200,
+      pendingPayments: 8,
+      thisMonthCollection: 45000
+    };
+    
+    setStats(prev => ({
+      ...prev,
+      totalCollected: mockStats.totalCollected,
+      outstandingBalance: mockStats.outstandingBalance
+    }));
+  } catch (error) {
+    console.error('Error fetching fee stats:', error);
+  }
+};
+
+// Call fetchFeeStats in your useEffect
+useEffect(() => {
+  fetchDashboardData();
+  fetchFeeStats(); // Add this line
+}, []);
 
   return (
     <Layout>
