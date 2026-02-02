@@ -10,10 +10,11 @@ const Sidebar = ({ onClose }) => {
     { path: '/dashboard', icon: '📊', label: 'Dashboard' },
     { path: '/members', icon: '👥', label: 'Members' },
     { path: '/rooms', icon: '🏠', label: 'Rooms' },
+    { path: '/beds', icon: '🛏️', label: 'Beds' },
+    { path: '/bed-assignments', icon: '📋', label: 'Bed Assignments' }, // ADDED
     { path: '/fees', icon: '💰', label: 'Fees' },
     { path: '/permissions', icon: '🔐', label: 'Permissions' },
     { path: '/roles', icon: '👑', label: 'Roles' },
-    { path: '/beds', icon: '🛏️', label: 'Beds' },
   ];
 
   return (
