@@ -1,153 +1,318 @@
 import React, { useState, useEffect } from 'react';
-import { Row, Col, Card, Table, Badge } from 'react-bootstrap';
+import { Row, Col, Card, Badge, Button, Alert, ProgressBar } from 'react-bootstrap';
 import Layout from '../components/layout/Layout';
 import { useAuthHook } from '../hooks/useAuth';
 import LoadingSpinner from '../components/common/LoadingSpinner';
-import { roomService } from '../services/roomService';
-import { bedService } from '../services/bedService';
-import { feeService } from '../services/feeService';
+import { dashboardService } from '../services/dashboardService';
 
 const Dashboard = () => {
   const { user, loading: authLoading } = useAuthHook();
   const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState({
-    totalRooms: 0,
-    availableRooms: 0,
-    totalBeds: 0,
-    occupiedBeds: 0,
-    totalMembers: 0,
-    activeMembers: 0,
-    totalCollected: 0,
-    outstandingBalance: 0,
-  });
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState(null);
+  const [stats, setStats] = useState(null);
 
-  const [recentCollections] = useState([
-    { id: '#REC-9921', name: 'Aadit Sharma', room: '102', date: 'Jan 20, 2026', amount: '₹8,500', status: 'Paid' },
-    { id: '#REC-9922', name: 'Usman Khan', room: '204', date: 'Jan 19, 2026', amount: '₹4,000', status: 'Partial' },
-    { id: '#REC-9923', name: 'Hamza Ali', room: '108', date: 'Jan 18, 2026', amount: '₹8,500', status: 'Paid' },
-  ]);
-
-  // 1. Pehle Functions define karein (Hoisting fix)
-  const fetchDashboardData = async () => {
+  // Fetch dashboard stats
+  const fetchDashboardStats = async () => {
     try {
-      const roomsResponse = await roomService.getAllRooms();
-      const totalRooms = roomsResponse?.count || 0;
-      const availableRooms = roomsResponse?.data?.filter(room => room.status === 'AVAILABLE').length || 0;
-
-      const bedsResponse = await bedService.getAllBeds();
-      const totalBeds = bedsResponse?.count || 0;
-      const occupiedBeds = bedsResponse?.data?.filter(bed => bed.status === 'OCCUPIED').length || 0;
-
-      setStats(prev => ({
-        ...prev,
-        totalRooms,
-        availableRooms,
-        totalBeds,
-        occupiedBeds,
-        totalMembers: 120, // Mock data
-        activeMembers: 110,
-      }));
-    } catch (error) {
-      console.error('Error fetching room/bed data:', error);
-    }
-  };
-
-  const fetchFeeStats = async () => {
-    try {
-      // In real app: const response = await feeService.getFeeSummary();
-      const mockStats = {
-        totalCollected: 124500,
-        outstandingBalance: 18200,
-      };
-
-      setStats(prev => ({
-        ...prev,
-        totalCollected: mockStats.totalCollected,
-        outstandingBalance: mockStats.outstandingBalance
-      }));
-    } catch (error) {
-      console.error('Error fetching fee stats:', error);
-    }
-  };
-
-  // 2. Phir useEffect call karein
-  useEffect(() => {
-    const loadAllStats = async () => {
       setLoading(true);
-      // Dono API calls parallel chalengi
-      await Promise.all([
-        fetchDashboardData(),
-        fetchFeeStats()
-      ]);
+      setError(null);
+      
+      const response = await dashboardService.getDashboardStats();
+      
+      if (response.success && response.data) {
+        setStats(response.data);
+      } else {
+        setError('Failed to load dashboard statistics');
+      }
+    } catch (err) {
+      console.error('Error fetching dashboard stats:', err);
+      
+      // Check for specific error types
+      if (err.message.includes('Network error')) {
+        setError('Cannot connect to server. Please check your internet connection.');
+      } else if (err.message.includes('401') || err.message.includes('Session expired')) {
+        setError('Your session has expired. Please login again.');
+      } else if (err.message.includes('404')) {
+        setError('Dashboard data not available yet. Please refresh to generate stats.');
+      } else {
+        setError(err.message || 'Failed to load dashboard data');
+      }
+    } finally {
       setLoading(false);
-    };
+    }
+  };
 
-    loadAllStats();
+  // Refresh dashboard stats
+  const refreshDashboardStats = async () => {
+    try {
+      setRefreshing(true);
+      const response = await dashboardService.refreshDashboardStats();
+      
+      if (response.success && response.data) {
+        setStats(response.data);
+        setError(null);
+      } else {
+        setError('Failed to refresh dashboard');
+      }
+    } catch (err) {
+      console.error('Error refreshing dashboard:', err);
+      setError(err.message || 'Failed to refresh dashboard');
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchDashboardStats();
   }, []);
 
+  // Show loading spinner
   if (authLoading || loading) {
-    return <LoadingSpinner />;
+    return (
+      <Layout>
+        <div className="d-flex justify-content-center align-items-center" style={{ height: '70vh' }}>
+          <LoadingSpinner />
+        </div>
+      </Layout>
+    );
   }
 
-  const statsCards = [
-    { title: 'Total Rooms', value: stats.totalRooms, icon: '🏠', color: 'primary', subtitle: `${stats.availableRooms} available` },
-    { title: 'Total Beds', value: stats.totalBeds, icon: '🛏️', color: 'success', subtitle: `${stats.occupiedBeds} occupied` },
-    { title: 'Total Members', value: stats.totalMembers, icon: '👥', color: 'warning', subtitle: `${stats.activeMembers} active` },
-    { title: 'Fee Collection', value: `₹${stats.totalCollected.toLocaleString()}`, icon: '💰', color: 'info', subtitle: 'This month' },
+  // Show error state
+  if (error && !stats) {
+    return (
+      <Layout>
+        <div className="mb-4">
+          <h2 className="text-dark mb-1">Dashboard Overview</h2>
+          <p className="text-muted mb-3">Welcome back, {user?.fullName || 'Admin'}!</p>
+        </div>
+        
+        <Card className="border-0 shadow-sm">
+          <Card.Body className="text-center py-5">
+            <div className="mb-4">
+              <span style={{ fontSize: '64px' }}>📊</span>
+            </div>
+            <h4 className="text-danger mb-3">Unable to Load Dashboard</h4>
+            <p className="text-muted mb-4">{error}</p>
+            <div className="d-flex justify-content-center gap-3">
+              <Button 
+                variant="primary" 
+                onClick={fetchDashboardStats}
+                disabled={loading}
+              >
+                Retry
+              </Button>
+              <Button 
+                variant="outline-primary" 
+                onClick={refreshDashboardStats}
+                disabled={refreshing}
+              >
+                {refreshing ? 'Refreshing...' : 'Generate Stats'}
+              </Button>
+            </div>
+          </Card.Body>
+        </Card>
+      </Layout>
+    );
+  }
+
+  // Format date
+  const formatDate = (dateString) => {
+    if (!dateString) return 'N/A';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  // Format currency
+  const formatCurrency = (amount) => {
+    return new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency: 'INR',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(amount || 0);
+  };
+
+  // Main stats cards
+  const mainStatsCards = [
+    {
+      title: 'Total Members',
+      value: stats?.members?.total || 0,
+      icon: '👥',
+      color: 'primary',
+      subtitle: `${stats?.members?.active || 0} active`,
+      progress: stats?.members?.total ? (stats.members.active / stats.members.total) * 100 : 0
+    },
+    {
+      title: 'Rooms',
+      value: stats?.rooms?.totalRooms || 0,
+      icon: '🏠',
+      color: 'success',
+      subtitle: `${stats?.rooms?.availableRooms || 0} available`,
+      progress: stats?.rooms?.totalRooms ? ((stats.rooms.totalRooms - stats.rooms.availableRooms) / stats.rooms.totalRooms) * 100 : 0
+    },
+    {
+      title: 'Beds',
+      value: stats?.beds?.totalBeds || 0,
+      icon: '🛏️',
+      color: 'warning',
+      subtitle: `${stats?.beds?.occupiedBeds || 0} occupied`,
+      progress: stats?.beds?.totalBeds ? (stats.beds.occupiedBeds / stats.beds.totalBeds) * 100 : 0
+    },
+    {
+      title: 'Total Revenue',
+      value: formatCurrency(stats?.billing?.totalRevenue || 0),
+      icon: '💰',
+      color: 'info',
+      subtitle: `${formatCurrency(stats?.billing?.totalDue || 0)} pending`,
+      progress: stats?.billing?.totalRevenue ? (stats.billing.totalRevenue / (stats.billing.totalRevenue + stats.billing.totalDue)) * 100 : 0
+    },
   ];
 
-  const featureCards = [
-    { title: 'Member Management', description: 'Manage residents and room allocations', icon: '👥', link: '/members' },
-    { title: 'Room Allocation', description: 'Assign rooms and beds to members', icon: '🏠', link: '/rooms' },
-    { title: 'Fee Collection', description: 'Collect and track payments', icon: '💰', link: '/fees' },
-    { title: 'Reports', description: 'Generate system reports', icon: '📊', link: '/reports' },
+  // Mess stats cards
+  const messStatsCards = [
+    {
+      title: "Today's Orders",
+      value: stats?.mess?.todayOrders || 0,
+      icon: '📝',
+      color: 'primary'
+    },
+    {
+      title: "Today's Revenue",
+      value: formatCurrency(stats?.mess?.todayRevenue || 0),
+      icon: '💰',
+      color: 'success'
+    },
+    {
+      title: 'Month Revenue',
+      value: formatCurrency(stats?.mess?.monthRevenue || 0),
+      icon: '📈',
+      color: 'warning'
+    },
   ];
+
+  // Billing stats
+  const billingStats = {
+    paid: stats?.billing?.paidBills || 0,
+    unpaid: stats?.billing?.unpaidBills || 0,
+    partial: stats?.billing?.partialBills || 0,
+    total: stats?.billing?.totalBills || 0
+  };
+
+  // Visitor stats
+  const visitorStats = {
+    today: stats?.visitors?.todayVisitors || 0,
+    inside: stats?.visitors?.currentlyInside || 0
+  };
+
+  // Bed assignment stats
+  const bedAssignmentStats = {
+    active: stats?.bedAssignments?.active || 0,
+    closed: stats?.bedAssignments?.closed || 0
+  };
+
+  // User stats by role
+  const userRoles = stats?.users?.byRole || [];
 
   return (
     <Layout>
-      <div className="mb-3">
-        <h2 className="text-dark mb-1">2026 Dashboard Overview</h2>
-        <p className="text-muted mb-3">Welcome back, {user?.fullName || 'Admin'}!</p>
+      <div className="mb-4">
+        <div className="d-flex justify-content-between align-items-center mb-3">
+          <div>
+            <h2 className="text-dark mb-1">Dashboard Overview</h2>
+            <p className="text-muted mb-0">
+              Welcome back, <strong>{user?.fullName || 'Admin'}</strong>!
+              {stats?.lastUpdatedAt && (
+                <span className="ms-3 text-muted small">
+                  Last updated: {formatDate(stats.lastUpdatedAt)}
+                </span>
+              )}
+            </p>
+          </div>
+          <Button 
+            variant="outline-primary" 
+            size="sm"
+            onClick={refreshDashboardStats}
+            disabled={refreshing}
+            className="d-flex align-items-center gap-2"
+          >
+            {refreshing ? (
+              <>
+                <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                Refreshing...
+              </>
+            ) : (
+              <>
+                <span>🔄</span>
+                Refresh Stats
+              </>
+            )}
+          </Button>
+        </div>
+
+        {error && (
+          <Alert variant="warning" dismissible onClose={() => setError(null)} className="mb-3">
+            {error}
+          </Alert>
+        )}
       </div>
 
-      <Row className="g-3 mb-3">
-        {statsCards.map((stat, index) => (
-          <Col md={3} key={index}>
+      {/* Main Statistics Cards */}
+      <Row className="g-3 mb-4">
+        {mainStatsCards.map((stat, index) => (
+          <Col xl={3} lg={6} md={6} key={index}>
             <Card className="border-0 shadow-sm h-100">
-              <Card.Body className="p-2">
-                <div className="d-flex justify-content-between align-items-center mb-2">
+              <Card.Body className="p-3">
+                <div className="d-flex justify-content-between align-items-start mb-3">
                   <div>
-                    <h6 className="text-muted mb-1 small">{stat.title}</h6>
+                    <h6 className="text-muted mb-1">{stat.title}</h6>
                     <h3 className="mb-0">{stat.value}</h3>
+                    <p className="text-muted small mb-2 mt-1">{stat.subtitle}</p>
                   </div>
-                  <div className={`bg-${stat.color}-light p-2 rounded-circle`}>
-                    <span style={{ fontSize: '20px' }}>{stat.icon}</span>
+                  <div className={`bg-${stat.color}-light p-3 rounded-circle`}>
+                    <span style={{ fontSize: '24px' }}>{stat.icon}</span>
                   </div>
                 </div>
-                <p className="text-muted small mb-0">{stat.subtitle}</p>
+                <ProgressBar 
+                  now={stat.progress} 
+                  variant={stat.color}
+                  className="mb-0"
+                  style={{ height: '4px' }}
+                />
               </Card.Body>
             </Card>
           </Col>
         ))}
       </Row>
 
-      <Row className="g-2">
+      <Row className="g-3">
+        {/* Left Column - 8 */}
         <Col lg={8}>
-          <Card className="border-0 shadow-sm mb-2">
-            <Card.Body className="p-2">
-              <h5 className="text-dark mb-2">Quick Access</h5>
+          {/* Mess Statistics */}
+          <Card className="border-0 shadow-sm mb-3">
+            <Card.Body className="p-3">
+              <div className="d-flex justify-content-between align-items-center mb-3">
+                <h5 className="text-dark mb-0">Mess Statistics</h5>
+                <Badge bg="light" text="dark" className="px-3 py-2">
+                  🍽️ Daily Report
+                </Badge>
+              </div>
               <Row>
-                {featureCards.map((feature, index) => (
-                  <Col md={6} key={index}>
-                    <Card className="border mb-1" style={{ cursor: 'pointer' }} onClick={() => window.location.href = feature.link}>
-                      <Card.Body className="p-2 d-flex align-items-center">
-                        <div className="me-2">
-                          <span style={{ fontSize: '20px' }}>{feature.icon}</span>
+                {messStatsCards.map((stat, index) => (
+                  <Col md={4} key={index}>
+                    <Card className="border">
+                      <Card.Body className="p-3 text-center">
+                        <div className="mb-2">
+                          <span style={{ fontSize: '28px' }}>{stat.icon}</span>
                         </div>
-                        <div>
-                          <h6 className="mb-0 small">{feature.title}</h6>
-                          <p className="text-muted small mb-0">{feature.description}</p>
-                        </div>
+                        <h6 className="text-muted mb-1 small">{stat.title}</h6>
+                        <h4 className="mb-0">{stat.value}</h4>
                       </Card.Body>
                     </Card>
                   </Col>
@@ -156,93 +321,216 @@ const Dashboard = () => {
             </Card.Body>
           </Card>
 
-          <Card className="border-0 shadow-sm">
-            <Card.Body className="p-2">
-              <div className="d-flex justify-content-between align-items-center mb-2">
-                <h5 className="text-dark mb-0">Recent Fee Collections</h5>
-                <Badge bg="light" text="dark" className="px-2 py-1">
-                  <span className="me-1">📅</span> Last 7 days
-                </Badge>
+          {/* Billing & Financial Summary */}
+          <Card className="border-0 shadow-sm mb-3">
+            <Card.Body className="p-3">
+              <div className="d-flex justify-content-between align-items-center mb-3">
+                <h5 className="text-dark mb-0">Billing Summary</h5>
+                <div>
+                  <Badge bg="light" text="dark" className="px-3 py-2">
+                    Total Bills: {billingStats.total}
+                  </Badge>
+                </div>
               </div>
-              <div className="table-responsive">
-                <Table hover className="mb-0 small">
-                  <thead className="bg-light">
-                    <tr>
-                      <th>Receipt ID</th>
-                      <th>Member Name</th>
-                      <th>Room</th>
-                      <th>Date</th>
-                      <th>Amount</th>
-                      <th>Status</th>
-                      <th>Action</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {recentCollections.map((collection, index) => (
-                      <tr key={index}>
-                        <td className="fw-bold">{collection.id}</td>
-                        <td>{collection.name}</td>
-                        <td>{collection.room}</td>
-                        <td>{collection.date}</td>
-                        <td className="fw-bold">{collection.amount}</td>
-                        <td>
-                          <Badge bg={collection.status === 'Paid' ? 'success' : 'warning'} className="px-2 py-1">
-                            {collection.status}
-                          </Badge>
-                        </td>
-                        <td>
-                          <button className="btn btn-sm btn-outline-primary py-0 px-2">View</button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </Table>
+              
+              <Row className="mb-3">
+                <Col md={4}>
+                  <div className="text-center p-3 border rounded">
+                    <h6 className="text-success mb-1">Paid</h6>
+                    <h3 className="mb-0">{billingStats.paid}</h3>
+                    <div className="mt-2">
+                      <Badge bg="success" className="px-3 py-1">
+                        {billingStats.total > 0 ? Math.round((billingStats.paid / billingStats.total) * 100) : 0}%
+                      </Badge>
+                    </div>
+                  </div>
+                </Col>
+                <Col md={4}>
+                  <div className="text-center p-3 border rounded">
+                    <h6 className="text-danger mb-1">Unpaid</h6>
+                    <h3 className="mb-0">{billingStats.unpaid}</h3>
+                    <div className="mt-2">
+                      <Badge bg="danger" className="px-3 py-1">
+                        {billingStats.total > 0 ? Math.round((billingStats.unpaid / billingStats.total) * 100) : 0}%
+                      </Badge>
+                    </div>
+                  </div>
+                </Col>
+                <Col md={4}>
+                  <div className="text-center p-3 border rounded">
+                    <h6 className="text-warning mb-1">Partial</h6>
+                    <h3 className="mb-0">{billingStats.partial}</h3>
+                    <div className="mt-2">
+                      <Badge bg="warning" className="px-3 py-1">
+                        {billingStats.total > 0 ? Math.round((billingStats.partial / billingStats.total) * 100) : 0}%
+                      </Badge>
+                    </div>
+                  </div>
+                </Col>
+              </Row>
+              
+              <div className="row align-items-center">
+                <Col md={6}>
+                  <div className="d-flex justify-content-between mb-2">
+                    <span className="text-muted">Total Revenue</span>
+                    <span className="fw-bold text-success">
+                      {formatCurrency(stats?.billing?.totalRevenue || 0)}
+                    </span>
+                  </div>
+                  <div className="d-flex justify-content-between">
+                    <span className="text-muted">Total Due</span>
+                    <span className="fw-bold text-danger">
+                      {formatCurrency(stats?.billing?.totalDue || 0)}
+                    </span>
+                  </div>
+                </Col>
+                <Col md={6}>
+                  <div className="d-grid">
+                    <Button 
+                      variant="outline-primary" 
+                      size="sm"
+                      onClick={() => window.location.href = '/bills'}
+                    >
+                      📋 View All Bills
+                    </Button>
+                  </div>
+                </Col>
               </div>
             </Card.Body>
           </Card>
         </Col>
 
+        {/* Right Column - 4 */}
         <Col lg={4}>
-          <Card className="border-0 shadow-sm mb-2">
-            <Card.Body className="p-2">
-              <div className="d-flex justify-content-between align-items-center mb-2">
-                <h6 className="text-dark mb-0">Outstanding Balance</h6>
-                <span className="text-danger">⚠️</span>
+          {/* User Statistics */}
+          <Card className="border-0 shadow-sm mb-3">
+            <Card.Body className="p-3">
+              <h6 className="text-dark mb-3">👤 User Statistics</h6>
+              
+              <div className="d-flex justify-content-between mb-3">
+                <div className="text-center">
+                  <h4 className="mb-0">{stats?.users?.total || 0}</h4>
+                  <small className="text-muted">Total Users</small>
+                </div>
+                <div className="text-center">
+                  <h4 className="mb-0">{stats?.users?.active || 0}</h4>
+                  <small className="text-muted">Active Users</small>
+                </div>
               </div>
-              <h2 className="text-danger mb-1">₹{stats.outstandingBalance.toLocaleString()}</h2>
-              <p className="text-muted small mb-2">8 members pending payment</p>
-              <button className="btn btn-sm btn-outline-danger w-100 py-1">
-                Send Reminders
-              </button>
+
+              {userRoles.length > 0 && (
+                <>
+                  <h6 className="text-dark mb-2">Users by Role</h6>
+                  <div className="table-responsive">
+                    <table className="table table-sm mb-0">
+                      <thead>
+                        <tr>
+                          <th>Role</th>
+                          <th className="text-end">Count</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {userRoles.map((roleStat, index) => (
+                          <tr key={index}>
+                            <td>
+                              <Badge bg="secondary" className="px-2 py-1">
+                                {roleStat.role}
+                              </Badge>
+                            </td>
+                            <td className="text-end fw-bold">{roleStat.count}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              )}
             </Card.Body>
           </Card>
 
-          <Card className="border-0 shadow-sm mb-2">
-            <Card.Body className="p-2">
-              <h6 className="text-dark mb-2">System Status</h6>
-              <div className="d-flex justify-content-between mb-1 small">
-                <span className="text-muted">Database</span>
-                <Badge bg="success" className="py-1 px-2">Connected</Badge>
-              </div>
-              <div className="d-flex justify-content-between mb-1 small">
-                <span className="text-muted">API Services</span>
-                <Badge bg="success" className="py-1 px-2">Online</Badge>
-              </div>
-            </Card.Body>
-          </Card>
+          {/* Visitor & Bed Assignment Stats */}
+          <Row className="g-2 mb-3">
+            <Col md={6}>
+              <Card className="border-0 shadow-sm h-100">
+                <Card.Body className="p-3">
+                  <h6 className="text-dark mb-3">👥 Visitors</h6>
+                  <div className="text-center">
+                    <h2 className="mb-0">{visitorStats.today}</h2>
+                    <small className="text-muted">Today's Visitors</small>
+                  </div>
+                  <div className="text-center mt-3">
+                    <Badge bg="info" className="px-3 py-2">
+                      {visitorStats.inside} Currently Inside
+                    </Badge>
+                  </div>
+                </Card.Body>
+              </Card>
+            </Col>
+            <Col md={6}>
+              <Card className="border-0 shadow-sm h-100">
+                <Card.Body className="p-3">
+                  <h6 className="text-dark mb-3">🛏️ Bed Assignments</h6>
+                  <div className="text-center">
+                    <h2 className="mb-0">{bedAssignmentStats.active}</h2>
+                    <small className="text-muted">Active Assignments</small>
+                  </div>
+                  <div className="text-center mt-3">
+                    <Badge bg="secondary" className="px-3 py-2">
+                      {bedAssignmentStats.closed} Closed
+                    </Badge>
+                  </div>
+                </Card.Body>
+              </Card>
+            </Col>
+          </Row>
 
+          {/* Quick Actions */}
           <Card className="border-0 shadow-sm">
-            <Card.Body className="p-2">
-              <h6 className="text-dark mb-2">Quick Actions</h6>
-              <div className="d-grid gap-1">
-                <button className="btn btn-outline-dark py-1 text-start px-2">➕ Add Member</button>
-                <button className="btn btn-outline-dark py-1 text-start px-2">🏠 Allocate Room</button>
-                <button className="btn btn-outline-dark py-1 text-start px-2">💰 Collect Fee</button>
+            <Card.Body className="p-3">
+              <h6 className="text-dark mb-3">⚡ Quick Actions</h6>
+              <div className="d-grid gap-2">
+                <Button 
+                  variant="outline-dark" 
+                  size="sm"
+                  className="d-flex align-items-center justify-content-between py-2"
+                  onClick={() => window.location.href = '/members'}
+                >
+                  <span>👥 Manage Members</span>
+                  <span className="text-muted">→</span>
+                </Button>
+                <Button 
+                  variant="outline-dark" 
+                  size="sm"
+                  className="d-flex align-items-center justify-content-between py-2"
+                  onClick={() => window.location.href = '/rooms'}
+                >
+                  <span>🏠 Allocate Rooms</span>
+                  <span className="text-muted">→</span>
+                </Button>
+                <Button 
+                  variant="outline-dark" 
+                  size="sm"
+                  className="d-flex align-items-center justify-content-between py-2"
+                  onClick={() => window.location.href = '/beds'}
+                >
+                  <span>🛏️ Manage Beds</span>
+                  <span className="text-muted">→</span>
+                </Button>
+                <Button 
+                  variant="outline-dark" 
+                  size="sm"
+                  className="d-flex align-items-center justify-content-between py-2"
+                  onClick={() => window.location.href = '/food-orders'}
+                >
+                  <span>🍽️ Food Orders</span>
+                  <span className="text-muted">→</span>
+                </Button>
               </div>
             </Card.Body>
           </Card>
         </Col>
       </Row>
+
     </Layout>
   );
 };

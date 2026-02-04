@@ -1,0 +1,254 @@
+/* ===== BILLS PAGE SPECIFIC STYLES ===== */
+
+/* Gradient backgrounds (only used in Bills page) */
+.bills-bg-gradient-primary {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+}
+
+.bills-bg-gradient-success {
+  background: linear-gradient(135deg, #0ba360 0%, #3cba92 100%) !important;
+}
+
+.bills-bg-gradient-warning {
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%) !important;
+}
+
+.bills-bg-gradient-info {
+  background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%) !important;
+}
+
+/* Bills-specific utility classes */
+.bills-stat-card {
+  transition: all 0.3s ease;
+  border-radius: 15px !important;
+  overflow: hidden;
+}
+
+.bills-stat-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 10px 20px rgba(0,0,0,0.1) !important;
+}
+
+.bills-stat-icon {
+  opacity: 0.8;
+}
+
+.bills-hover-lift {
+  transition: transform 0.2s ease;
+  border-radius: 10px !important;
+}
+
+.bills-hover-lift:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 5px 15px rgba(0,0,0,0.08) !important;
+}
+
+.bills-btn-outline-orange {
+  color: #FF8C00;
+  border-color: #FF8C00;
+}
+
+.bills-btn-outline-orange:hover {
+  color: #fff;
+  background-color: #FF8C00;
+  border-color: #FF8C00;
+}
+
+/* Table styles */
+.bills-page .table th {
+  border-top: none;
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 0.85rem;
+  color: #6c757d;
+  letter-spacing: 0.5px;
+}
+
+.bills-page .table tbody tr {
+  transition: background-color 0.2s ease;
+}
+
+.bills-page .table tbody tr:hover {
+  background-color: rgba(255, 140, 0, 0.05);
+}
+
+.bills-page .table tbody td {
+  vertical-align: middle;
+}
+
+/* Alert styling */
+.bills-page .alert-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Progress bar customization */
+.bills-page .progress {
+  border-radius: 10px;
+  background-color: #f0f0f0;
+}
+
+.bills-page .progress-bar {
+  border-radius: 10px;
+}
+
+/* Form controls */
+.bills-page .form-control-lg {
+  border-radius: 10px;
+  border: 1px solid #e0e0e0;
+  transition: all 0.3s ease;
+}
+
+.bills-page .form-control-lg:focus {
+  border-color: #FF8C00;
+  box-shadow: 0 0 0 0.2rem rgba(255, 140, 0, 0.25);
+  transform: translateY(-1px);
+}
+
+/* Modal styles */
+.bills-page .modal-content {
+  border-radius: 15px;
+  border: none;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+}
+
+.bills-page .modal-header {
+  padding-bottom: 0;
+}
+
+/* Custom scrollbar for bills tables */
+.bills-page .table-responsive::-webkit-scrollbar {
+  height: 6px;
+}
+
+.bills-page .table-responsive::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 10px;
+}
+
+.bills-page .table-responsive::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 10px;
+}
+
+.bills-page .table-responsive::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+
+/* Tooltip customization */
+.bills-page .tooltip-inner {
+  border-radius: 6px;
+  padding: 6px 12px;
+  font-size: 0.85rem;
+}
+
+/* Button group spacing */
+.bills-page .btn-group-spacing .btn {
+  margin-right: 5px;
+}
+
+.bills-page .btn-group-spacing .btn:last-child {
+  margin-right: 0;
+}
+
+/* Status colors */
+.bills-text-status-unpaid {
+  color: #dc3545;
+}
+
+.bills-text-status-partial {
+  color: #ffc107;
+}
+
+.bills-text-status-paid {
+  color: #198754;
+}
+
+/* Card hover effects */
+.bills-card-hover {
+  transition: all 0.3s ease;
+}
+
+.bills-card-hover:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .bills-page .stat-card .stat-icon {
+    display: none;
+  }
+  
+  .bills-page .table th, 
+  .bills-page .table td {
+    padding: 0.75rem 0.5rem;
+    font-size: 0.85rem;
+  }
+  
+  .bills-page .btn-group-spacing .btn {
+    margin-bottom: 5px;
+  }
+  
+  .bills-page .d-flex.gap-2 {
+    flex-wrap: wrap;
+  }
+}
+
+@media (max-width: 576px) {
+  .bills-page .table-responsive {
+    font-size: 0.8rem;
+  }
+  
+  .bills-page .badge {
+    font-size: 0.75rem;
+  }
+  
+  .bills-page .modal-dialog {
+    margin: 0.5rem;
+  }
+}
+
+/* Animation for new bill creation */
+@keyframes bills-fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.bills-page .fade-in {
+  animation: bills-fadeIn 0.3s ease-out;
+}
+
+/* Loading animation */
+.bills-page .loading-shimmer {
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: bills-shimmer 1.5s infinite;
+}
+
+@keyframes bills-shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+/* Print styles for bills */
+@media print {
+  .bills-page .no-print {
+    display: none !important;
+  }
+  
+  .bills-page .print-only {
+    display: block !important;
+  }
+  
+  .bills-page .table {
+    border-collapse: collapse;
+  }
+  
+  .bills-page .table th,
+  .bills-page .table td {
+    border: 1px solid #000;
+    padding: 8px;
+  }
+}

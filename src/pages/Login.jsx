@@ -49,7 +49,7 @@ const Login = () => {
   const demoLogins = [
     { role: 'Admin', email: 'admin@hostel.com', password: 'admin123' },
     { role: 'Accountant', email: 'accountant@hostel.com', password: 'accountant123' },
-    { role: 'Member', email: 'member@hostel.com', password: 'member123' },
+    { role: 'Mess Incharge', email: 'member@hostel.com', password: 'member123' },
   ];
 
   const handleDemoLogin = (demoUser) => {
