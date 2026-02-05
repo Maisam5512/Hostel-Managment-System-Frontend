@@ -105,6 +105,7 @@ const Roles = () => {
   };
 
   const openEditModal = (role) => {
+    console.log("edit pressed");
     setSelectedRole(role);
     editForm.setValues({
       name: role.name,
@@ -354,7 +355,7 @@ const Roles = () => {
                                   variant="outline-primary"
                                   size="sm"
                                   onClick={() => openEditModal(role)}
-                                  disabled={role.isSystemRole}
+                                  // disabled={role.isSystemRole}
                                 >
                                   Edit
                                 </Button>

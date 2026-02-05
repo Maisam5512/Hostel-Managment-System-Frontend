@@ -94,8 +94,11 @@ const Users = () => {
 
   const handleToggleStatus = async (user) => {
     if (window.confirm(`Are you sure you want to ${user.isActive ? 'deactivate' : 'activate'} this user?`)) {
+              console.log('Toggled User Id', user._id );
+
       try {
-        const response = await callApi('patch', `/users/${user._id}/status`);
+        const response = await callApi('patch', `/users/${user._id}/status`,{});
+        console.log('Toggle status response:', response);
         if (response.message) {
           setSuccessMessage(`User ${user.isActive ? 'deactivated' : 'activated'} successfully!`);
           fetchUsers();
