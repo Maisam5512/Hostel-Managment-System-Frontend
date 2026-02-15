@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import { useForm } from '../hooks/useForm';
+import { DEFAULT_ROUTES } from '../constants/roles';
 
 const Login = () => {
   const navigate = useNavigate();
@@ -38,6 +39,9 @@ const Login = () => {
     
     if (result.success) {
       // Navigation will happen automatically via useEffect or ProtectedRoute
+      const roleCode = result.user?.role?.code || result.user?.role;
+    const defaultRoute = DEFAULT_ROUTES[roleCode] || '/dashboard';
+    navigate(defaultRoute, { replace: true });
       console.log('Login successful, redirecting...');
     } else {
       setError(result.error || 'Invalid credentials');

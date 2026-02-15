@@ -1,5 +1,6 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { authService } from '../services/authService';
+import { ROLE_CODE_MAP } from '../constants/roles'; // <-- new import
 
 const AuthContext = createContext({});
 
@@ -10,19 +11,16 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [token, setToken] = useState(localStorage.getItem('token'));
 
-  // Check if user is authenticated
   const isAuthenticated = !!token;
 
   useEffect(() => {
     const initAuth = async () => {
       if (token) {
         try {
-          // Fetch user profile
           const userData = await authService.getProfile();
           setUser(userData);
         } catch (error) {
           console.error('Failed to fetch user profile:', error);
-          // If token is invalid, clear it
           logout();
         }
       }
@@ -40,8 +38,6 @@ export const AuthProvider = ({ children }) => {
       localStorage.setItem('token', authToken);
       setToken(authToken);
       
-      // Note: login response has user with string role (code)
-      // We'll fetch full profile separately
       const fullUserProfile = await authService.getProfile();
       setUser(fullUserProfile);
       
@@ -59,8 +55,48 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem('token');
     setToken(null);
     setUser(null);
-    // Optional: Redirect to login
     window.location.href = '/login';
+  };
+
+  // ========== ROLE HELPERS ==========
+  
+const getUserRoleCode = () => {
+  if (!user) return null;
+
+  let rawRole = null;
+
+  // 1. Extract raw role value
+  if (typeof user.role === 'object' && user.role !== null) {
+    rawRole = user.role.code || user.role.name || null;
+  } else {
+    rawRole = user.role || null; // string from login response
+  }
+
+  if (!rawRole) return null;
+
+  // 2. Normalize: lowercase, trim
+  const roleStr = rawRole.toString().trim();
+  const lowerRole = roleStr.toLowerCase();
+
+  // 3. Remove any trailing numeric suffix like _01, _02 etc.
+  //    (this regex matches underscore followed by one or more digits at the end)
+  const baseRole = lowerRole.replace(/_\d+$/, '');
+
+  // 4. Look up in map – first try baseRole, then fallback to full lowerRole
+  const mapped = ROLE_CODE_MAP[baseRole] || ROLE_CODE_MAP[lowerRole];
+
+  // 5. Return mapped constant or original uppercase (as fallback)
+  return mapped || roleStr.toUpperCase();
+};
+
+  const hasRole = (roleCode) => {
+    const userRole = getUserRoleCode();
+    return userRole === roleCode;
+  };
+
+  const hasAnyRole = (roleCodes) => {
+    const userRole = getUserRoleCode();
+    return roleCodes.includes(userRole);
   };
 
   const value = {
@@ -70,6 +106,10 @@ export const AuthProvider = ({ children }) => {
     login,
     logout,
     isAuthenticated,
+    // role helpers
+    getUserRoleCode,
+    hasRole,
+    hasAnyRole,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

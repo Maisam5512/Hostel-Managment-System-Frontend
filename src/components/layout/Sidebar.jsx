@@ -1,30 +1,47 @@
 import React from 'react';
 import { Nav } from 'react-bootstrap';
 import { Link, useLocation } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
+import { ROLES } from '../../constants/roles';
 import '../../styles/sidebar.css';
 
 const Sidebar = ({ onClose }) => {
   const location = useLocation();
+  const { hasRole, isAuthenticated, getUserRoleCode } = useAuth();
 
-  const menuItems = [
-    { path: '/dashboard', icon: '📊', label: 'Dashboard' },
-    { path: '/members', icon: '👥', label: 'Members' },
-    { path: '/rooms', icon: '🏠', label: 'Rooms' },
-    { path: '/beds', icon: '🛏️', label: 'Beds' },
-    { path: '/bed-assignments', icon: '📋', label: 'Bed Assignments' },
-    { path: '/food-items', icon: '🍽️', label: 'Food Items' },
-    { path: '/food-orders', icon: '📝', label: 'Food Orders' },
-    { path: '/bills', icon: '💰', label: 'Bills' },
-    { path: '/fees', icon: '💰', label: 'Fees' },
-    { path: '/permissions', icon: '🔐', label: 'Permissions' },
-    { path: '/roles', icon: '👑', label: 'Roles' },
-    { path: '/users', icon: '👨‍💼', label: 'Users' },
-    { path: '/visitors', icon: '👥', label: 'Visitors' },
+  // ----- ALL MENU ITEMS WITH CORRECT ROLE ASSIGNMENTS -----
+  const allMenuItems = [
+    // Dashboard: only ADMIN and MEMBER
+    { path: '/dashboard', icon: '📊', label: 'Dashboard', roles: [ROLES.ADMIN, ROLES.MEMBER] },
+    // Admin‑only
+    { path: '/members', icon: '👥', label: 'Members', roles: [ROLES.ADMIN] },
+    { path: '/rooms', icon: '🏠', label: 'Rooms', roles: [ROLES.ADMIN] },
+    { path: '/beds', icon: '🛏️', label: 'Beds', roles: [ROLES.ADMIN] },
+    { path: '/bed-assignments', icon: '📋', label: 'Bed Assignments', roles: [ROLES.ADMIN] },
+    { path: '/permissions', icon: '🔐', label: 'Permissions', roles: [ROLES.ADMIN] },
+    { path: '/roles', icon: '👑', label: 'Roles', roles: [ROLES.ADMIN] },
+    { path: '/users', icon: '👨‍💼', label: 'Users', roles: [ROLES.ADMIN] },
+    // Mess Incharge
+    { path: '/food-items', icon: '🍽️', label: 'Food Items', roles: [ROLES.ADMIN, ROLES.MESS_INCHARGE] },
+    { path: '/food-orders', icon: '📝', label: 'Food Orders', roles: [ROLES.ADMIN, ROLES.MESS_INCHARGE] },
+    // Accountant
+    { path: '/bills', icon: '💰', label: 'Bills', roles: [ROLES.ADMIN, ROLES.ACCOUNTANT] },
+    // Security
+    { path: '/visitors', icon: '👥', label: 'Visitors', roles: [ROLES.ADMIN, ROLES.SECURITY] },
   ];
 
+  // ----- FILTERING – EXACT ROLE MATCH, NO AUTOMATIC DASHBOARD -----
+  const menuItems = allMenuItems.filter(item => {
+    // Admin sees everything
+    if (hasRole(ROLES.ADMIN)) return true;
+    // For all other roles: check if the user's role is in the item's allowed roles
+    return item.roles.some(role => hasRole(role));
+  });
+
+  // ----- ABSOLUTELY ORIGINAL JSX (no changes) -----
   return (
     <div className="sidebar bg-dark-theme text-white">
-      {/* Close button for mobile */}
+      {/* Mobile close button */}
       <div className="d-flex justify-content-end d-lg-none p-3">
         <button
           className="btn btn-close btn-close-white"
@@ -46,7 +63,7 @@ const Sidebar = ({ onClose }) => {
               as={Link}
               to={item.path}
               className={`sidebar-link mb-2 ${location.pathname === item.path ? 'active' : ''}`}
-              onClick={onClose} // Close sidebar on mobile when clicking a link
+              onClick={onClose}
             >
               <span className="sidebar-icon me-3">{item.icon}</span>
               <span className="sidebar-label">{item.label}</span>
