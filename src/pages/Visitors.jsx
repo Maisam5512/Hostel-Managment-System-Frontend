@@ -12,7 +12,6 @@ import {
   InputGroup,
   Dropdown,
   DropdownButton,
-  Spinner
 } from 'react-bootstrap';
 import { format } from 'date-fns';
 import Layout from '../components/layout/Layout';
@@ -20,6 +19,7 @@ import LoadingSpinner from '../components/common/LoadingSpinner';
 import { useAuthHook } from '../hooks/useAuth';
 import { visitorService } from '../services/visitorService';
 import { memberService } from '../services/memberService';
+import { bedAssignmentService } from '../services/bedAssignmentService';
 
 const Visitors = () => {
   const { user, loading: authLoading } = useAuthHook();
@@ -44,7 +44,7 @@ const Visitors = () => {
     remarks: ''
   });
 
-  // Load visitors and members
+  // Load visitors and members with room/bed info
   const loadData = async () => {
     try {
       setLoading(true);
@@ -55,11 +55,48 @@ const Visitors = () => {
         status: filterStatus === 'ALL' ? null : filterStatus
       });
 
-      // Load members for dropdown
-      const membersResponse = await memberService.getAllMembers({ status: 'ACTIVE' });
+      // Load all members
+      const membersResponse = await memberService.getAllMembers();
+      const activeMembers = (membersResponse.data || []).filter(m => m.status === 'ACTIVE');
 
-      setVisitors(visitorsResponse.data || []);
-      setMembers(membersResponse.data || []);
+      // For each active member, fetch active bed assignment to get room/bed numbers
+      const membersWithRoomInfo = await Promise.all(activeMembers.map(async (member) => {
+        let roomInfo = 'N/A';
+        let bedInfo = '';
+        try {
+          const assignments = await bedAssignmentService.getBedAssignmentsByMember(member._id);
+          const activeAssignment = assignments.data?.find(a => a.status === 'ACTIVE');
+          if (activeAssignment) {
+            roomInfo = activeAssignment.room_Id?.roomNumber || 'N/A';
+            bedInfo = activeAssignment.bed_Id?.bedNumber ? `Bed: ${activeAssignment.bed_Id.bedNumber}` : '';
+          }
+        } catch (err) {
+          console.error(`Error fetching assignment for member ${member._id}:`, err);
+        }
+        return {
+          _id: member._id,
+          name: member.fullName || `${member.memberCode} - Unknown`,
+          room: roomInfo,                // <-- added for easy access
+          bed: bedInfo.replace('Bed: ', ''), // store just the number if needed
+          display: `${member.fullName || member.memberCode} - Room: ${roomInfo} ${bedInfo ? `(${bedInfo})` : ''}`
+        };
+      }));
+
+      // Create a map for quick lookup by member ID
+      const memberMap = {};
+      membersWithRoomInfo.forEach(m => { memberMap[m._id] = m; });
+
+      // Enrich visitors with full member details
+      const enrichedVisitors = (visitorsResponse.data || []).map(visitor => {
+        if (visitor.member && memberMap[visitor.member._id || visitor.member]) {
+          const memberId = visitor.member._id || visitor.member;
+          visitor.member = memberMap[memberId]; // replace with full member object
+        }
+        return visitor;
+      });
+
+      setVisitors(enrichedVisitors);
+      setMembers(membersWithRoomInfo);
     } catch (err) {
       console.error('Error loading data:', err);
       setError(err.message || 'Failed to load data');
@@ -472,7 +509,7 @@ const Visitors = () => {
                     <option value="">Select Member</option>
                     {members.map((member) => (
                       <option key={member._id} value={member._id}>
-                        {member.name} - Room: {member.room || 'N/A'}
+                        {member.display}
                       </option>
                     ))}
                   </Form.Select>
