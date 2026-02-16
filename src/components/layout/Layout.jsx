@@ -1,17 +1,10 @@
-import React, { useState } from 'react';
+import React from 'react';
 import Sidebar from './Sidebar';
 import Topbar from './Topbar';
+import { useLayout } from '../../context/LayoutContext';   // <-- import
 
 const Layout = ({ children }) => {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-
-  const toggleSidebar = () => {
-    setSidebarOpen(!sidebarOpen);
-  };
-
-  const closeSidebar = () => {
-    setSidebarOpen(false);
-  };
+  const { sidebarOpen, toggleSidebar, closeSidebar } = useLayout();
 
   return (
     <div className="d-flex" style={{ minHeight: '100vh' }}>
@@ -32,7 +25,7 @@ const Layout = ({ children }) => {
       <div className="main-content flex-grow-1 d-flex flex-column">
         <Topbar 
           onToggleSidebar={toggleSidebar} 
-          sidebarOpen={sidebarOpen}   // <-- pass state
+          sidebarOpen={sidebarOpen}
         />
         <main className="flex-grow-1 p-0" style={{ overflowY: 'auto' }}>
           <div className="p-3">

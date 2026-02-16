@@ -31,17 +31,8 @@ const Sidebar = ({ onClose }) => {
 
   return (
     <div className="sidebar bg-dark-theme text-white">
-      {/* Close button - now always visible */}
-      <div className="d-flex justify-content-end p-3">
-        <button
-          className="btn btn-close btn-close-white"
-          onClick={onClose}
-          aria-label="Close sidebar"
-        />
-      </div>
-
       <div className="sidebar-header p-4 text-center border-bottom border-orange">
-        <h3 className="text-orange mb-0">🏨 HOSTELOS</h3>
+        <h3 className="text-orange mb-0">🏨 HOSTELO</h3>
         <p className="small text-white-50 mt-1">Management System</p>
       </div>
 
@@ -53,13 +44,36 @@ const Sidebar = ({ onClose }) => {
               as={Link}
               to={item.path}
               className={`sidebar-link mb-2 ${location.pathname === item.path ? 'active' : ''}`}
-              onClick={onClose}
+              // No onClick – sidebar stays open when navigating
             >
               <span className="sidebar-icon me-3">{item.icon}</span>
               <span className="sidebar-label">{item.label}</span>
             </Nav.Link>
           ))}
         </Nav>
+      </div>
+
+      {/* Close button at bottom right – left arrow icon */}
+      <div className="sidebar-close-container p-3 d-flex justify-content-end">
+        <button
+          className="btn btn-link text-white p-2"
+          onClick={onClose}
+          style={{
+            fontSize: '20px',
+            lineHeight: 1,
+            textDecoration: 'none',
+            background: 'rgba(255,140,0,0.2)',
+            borderRadius: '50%',
+            width: '40px',
+            height: '40px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}
+          aria-label="Close sidebar"
+        >
+          ←
+        </button>
       </div>
 
       <div className="sidebar-footer p-3 border-top border-secondary mt-auto">

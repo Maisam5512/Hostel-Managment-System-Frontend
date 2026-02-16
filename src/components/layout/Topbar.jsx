@@ -65,7 +65,7 @@ const Topbar = ({ onToggleSidebar, sidebarOpen }) => {
           )}
 
           <Navbar.Brand>
-            <h4 className="text-orange mb-0">🏨 HostelOS</h4>
+            <h4 className="text-orange mb-0">🏨 HostelO</h4>
           </Navbar.Brand>
         </div>
 
@@ -99,10 +99,6 @@ const Topbar = ({ onToggleSidebar, sidebarOpen }) => {
                 <div className="small text-muted">{getUserEmail()}</div>
                 <div className="small text-muted mt-1">Role: {getUserRole()}</div>
               </Dropdown.Header>
-              <Dropdown.Divider />
-              <Dropdown.Item as={Link} to="/profile">👤 My Profile</Dropdown.Item>
-              <Dropdown.Item as={Link} to="/settings">⚙️ Settings</Dropdown.Item>
-              <Dropdown.Divider />
               <Dropdown.Item onClick={handleLogout} className="text-danger">
                 🚪 Logout
               </Dropdown.Item>
