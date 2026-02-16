@@ -30,6 +30,7 @@ const Visitors = () => {
   const [showCheckInModal, setShowCheckInModal] = useState(false);
   const [showCheckOutModal, setShowCheckOutModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [selectedVisitor, setSelectedVisitor] = useState(null);
   const [filterStatus, setFilterStatus] = useState('ALL');
   const [searchTerm, setSearchTerm] = useState('');
@@ -76,8 +77,8 @@ const Visitors = () => {
         return {
           _id: member._id,
           name: member.fullName || `${member.memberCode} - Unknown`,
-          room: roomInfo,                // <-- added for easy access
-          bed: bedInfo.replace('Bed: ', ''), // store just the number if needed
+          room: roomInfo,
+          bed: bedInfo.replace('Bed: ', ''),
           display: `${member.fullName || member.memberCode} - Room: ${roomInfo} ${bedInfo ? `(${bedInfo})` : ''}`
         };
       }));
@@ -86,14 +87,19 @@ const Visitors = () => {
       const memberMap = {};
       membersWithRoomInfo.forEach(m => { memberMap[m._id] = m; });
 
-      // Enrich visitors with full member details
-      const enrichedVisitors = (visitorsResponse.data || []).map(visitor => {
-        if (visitor.member && memberMap[visitor.member._id || visitor.member]) {
-          const memberId = visitor.member._id || visitor.member;
-          visitor.member = memberMap[memberId]; // replace with full member object
-        }
-        return visitor;
-      });
+      // Enrich visitors with full member details and filter out those whose member is not active
+      const enrichedVisitors = (visitorsResponse.data || [])
+        .map(visitor => {
+          if (visitor.member && memberMap[visitor.member._id || visitor.member]) {
+            const memberId = visitor.member._id || visitor.member;
+            visitor.member = memberMap[memberId]; // replace with full member object
+          }
+          return visitor;
+        })
+        .filter(visitor => {
+          // Keep only visitors whose member is an object with a name (i.e., enriched, meaning the member is active)
+          return visitor.member && typeof visitor.member === 'object' && visitor.member.name;
+        });
 
       setVisitors(enrichedVisitors);
       setMembers(membersWithRoomInfo);
@@ -180,6 +186,12 @@ const Visitors = () => {
       console.error('Error deleting visitor:', err);
       setError(err.message || 'Failed to delete visitor');
     }
+  };
+
+  // Handle view details
+  const handleViewDetails = (visitor) => {
+    setSelectedVisitor(visitor);
+    setShowDetailsModal(true);
   };
 
   // Format date
@@ -422,9 +434,7 @@ const Visitors = () => {
                             {visitor.status === 'IN' ? '🟢 Check-out' : '🗑️ Delete'}
                           </Dropdown.Item>
                           <Dropdown.Item 
-                            onClick={() => {
-                              // View details if needed
-                            }}
+                            onClick={() => handleViewDetails(visitor)}
                           >
                             👁️ View Details
                           </Dropdown.Item>
@@ -601,6 +611,76 @@ const Visitors = () => {
           </Button>
           <Button variant="danger" onClick={handleDelete}>
             Delete Record
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
+      {/* Details Modal */}
+      <Modal show={showDetailsModal} onHide={() => setShowDetailsModal(false)}>
+        <Modal.Header closeButton>
+          <Modal.Title>👤 Visitor Details</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {selectedVisitor && (
+            <>
+              <div className="mb-3">
+                <h6 className="text-muted mb-1">Visitor Name</h6>
+                <p className="fs-5">{selectedVisitor.visitorName}</p>
+              </div>
+              <div className="mb-3">
+                <h6 className="text-muted mb-1">Phone</h6>
+                <p>{selectedVisitor.visitorPhone || 'N/A'}</p>
+              </div>
+              <div className="mb-3">
+                <h6 className="text-muted mb-1">CNIC</h6>
+                <p>{selectedVisitor.visitorCNIC || 'N/A'}</p>
+              </div>
+              <div className="mb-3">
+                <h6 className="text-muted mb-1">Purpose</h6>
+                <p>{selectedVisitor.purpose}</p>
+              </div>
+              <div className="mb-3">
+                <h6 className="text-muted mb-1">Member Visited</h6>
+                {selectedVisitor.member ? (
+                  <>
+                    <p className="mb-1">{selectedVisitor.member.name}</p>
+                    <p className="small text-muted">
+                      {selectedVisitor.member.room && `Room: ${selectedVisitor.member.room}`}
+                      {selectedVisitor.member.bed && ` | Bed: ${selectedVisitor.member.bed}`}
+                    </p>
+                  </>
+                ) : (
+                  <p>N/A</p>
+                )}
+              </div>
+              <div className="mb-3">
+                <h6 className="text-muted mb-1">Check-in Time</h6>
+                <p>{formatDate(selectedVisitor.inTime)}</p>
+              </div>
+              <div className="mb-3">
+                <h6 className="text-muted mb-1">Check-out Time</h6>
+                <p>{selectedVisitor.outTime ? formatDate(selectedVisitor.outTime) : 'N/A'}</p>
+              </div>
+              <div className="mb-3">
+                <h6 className="text-muted mb-1">Status</h6>
+                <Badge bg={selectedVisitor.status === 'IN' ? 'success' : 'secondary'}>
+                  {selectedVisitor.status === 'IN' ? 'INSIDE' : 'CHECKED OUT'}
+                </Badge>
+              </div>
+              <div className="mb-3">
+                <h6 className="text-muted mb-1">Remarks</h6>
+                <p>{selectedVisitor.remarks || 'No remarks'}</p>
+              </div>
+              <div className="mb-3">
+                <h6 className="text-muted mb-1">Logged By</h6>
+                <p>{selectedVisitor.loggedBy?.fullName || 'System'}</p>
+              </div>
+            </>
+          )}
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowDetailsModal(false)}>
+            Close
           </Button>
         </Modal.Footer>
       </Modal>

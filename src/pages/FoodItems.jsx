@@ -51,11 +51,8 @@ const FoodItems = () => {
       if (filter.category) params.category = filter.category;
       if (filter.isActive !== '') params.isActive = filter.isActive;
       
-      //console.log('🔍 Fetching food items with params:', params);
       const response = await foodItemService.getAll(params);
-      //console.log('📦 API Response:', response);
       
-      // Handle different response structures
       let items = [];
       if (response && response.success) {
         items = response.data || [];
@@ -65,7 +62,6 @@ const FoodItems = () => {
         items = response.data;
       }
       
-      //console.log('📊 Setting food items:', items);
       setFoodItems(items);
       setError('');
     } catch (err) {
@@ -103,43 +99,31 @@ const FoodItems = () => {
         return;
       }
 
-      //console.log('📤 Submitting form data:', formData);
-      
       let response;
       if (selectedItem) {
         response = await foodItemService.update(selectedItem._id, formData);
-        //console.log('✏️ Update response:', response);
         setSuccess(response.message || 'Food item updated successfully');
       } else {
         response = await foodItemService.create(formData);
-        //console.log('➕ Create response:', response);
         setSuccess(response.message || 'Food item created successfully');
         
-        // Check if we have the created item in response
         if (response.data) {
-          //console.log('🆕 New item created:', response.data);
-          // Add to local state immediately
           setFoodItems(prev => [response.data, ...prev]);
         }
       }
 
-      // Close modal
       handleCloseModal();
-      
-      // Refresh from server after 500ms to ensure consistency
       setTimeout(() => {
         fetchFoodItems();
       }, 500);
       
     } catch (err) {
       console.error('❌ Submit error:', err);
-      console.error('❌ Error details:', err.response?.data);
       setError(err.response?.data?.message || err.message || 'Operation failed');
     }
   };
 
   const handleEdit = (item) => {
-   // console.log('✏️ Editing item:', item);
     setSelectedItem(item);
     setFormData({
       name: item.name,
@@ -152,38 +136,24 @@ const FoodItems = () => {
 
   const handleDelete = async () => {
     try {
-      //console.log('🗑️ Deleting item:', selectedItem._id);
       const response = await foodItemService.delete(selectedItem._id);
-      //console.log('🗑️ Delete response:', response);
       
-      if (response.success) {
-        setSuccess(response.message || 'Food item deactivated successfully');
-        
-        // Update local state
-        setFoodItems(prev => 
-          prev.map(item => 
-            item._id === selectedItem._id 
-              ? { ...item, isActive: false } 
-              : item
-          )
-        );
-        
+      // If the API returns a success flag, check it; otherwise treat any 2xx as success.
+      if (response && response.success === false) {
+        setError(response.message || 'Failed to deactivate food item');
+      } else {
+        setSuccess(response?.message || 'Food item deactivated successfully');
         setShowDeleteModal(false);
         setSelectedItem(null);
-        
-        // Refresh from server
-        setTimeout(() => fetchFoodItems(), 300);
-      } else {
-        setError(response.message || 'Failed to deactivate food item');
+        fetchFoodItems(); // Refresh the list from server
       }
     } catch (err) {
       console.error('❌ Delete error:', err);
-      setError('Failed to deactivate food item');
+      setError(err.response?.data?.message || 'Failed to deactivate food item');
     }
   };
 
   const handleAddNew = () => {
-   // console.log('➕ Adding new item');
     setSelectedItem(null);
     setFormData({
       name: '',

@@ -1,6 +1,6 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { authService } from '../services/authService';
-import { ROLE_CODE_MAP } from '../constants/roles'; // <-- new import
+import { ROLE_CODE_MAP } from '../constants/roles';
 
 const AuthContext = createContext({});
 
@@ -11,20 +11,50 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [token, setToken] = useState(localStorage.getItem('token'));
 
-  const isAuthenticated = !!token;
-
   useEffect(() => {
     const initAuth = async () => {
       if (token) {
-        try {
-          const userData = await authService.getProfile();
-          setUser(userData);
-        } catch (error) {
-          console.error('Failed to fetch user profile:', error);
-          logout();
+        const storedUser = localStorage.getItem('user');
+        if (storedUser) {
+          try {
+            const parsedUser = JSON.parse(storedUser);
+            setUser(parsedUser);
+          } catch (e) {
+            console.error('Failed to parse stored user', e);
+          }
+          // We have a cached user → show UI immediately
+          setLoading(false);
+          // Then refresh the profile in the background
+          try {
+            const userData = await authService.getProfile();
+            setUser(userData);
+            localStorage.setItem('user', JSON.stringify(userData));
+          } catch (error) {
+            console.error('Failed to fetch user profile:', error);
+            // If the token is invalid, clear everything
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            setToken(null);
+            setUser(null);
+          }
+        } else {
+          // No cached user → we must wait for the profile fetch
+          try {
+            const userData = await authService.getProfile();
+            setUser(userData);
+            localStorage.setItem('user', JSON.stringify(userData));
+          } catch (error) {
+            console.error('Failed to fetch user profile:', error);
+            localStorage.removeItem('token');
+            setToken(null);
+          } finally {
+            setLoading(false);
+          }
         }
+      } else {
+        // No token → nothing to load
+        setLoading(false);
       }
-      setLoading(false);
     };
 
     initAuth();
@@ -34,60 +64,59 @@ export const AuthProvider = ({ children }) => {
     try {
       const response = await authService.login(email, password);
       const { token: authToken, user: userData } = response;
-      
+
       localStorage.setItem('token', authToken);
       setToken(authToken);
-      
-      const fullUserProfile = await authService.getProfile();
-      setUser(fullUserProfile);
-      
-      return { success: true, user: fullUserProfile };
+
+      // Store the user immediately (login response may be incomplete)
+      setUser(userData);
+      localStorage.setItem('user', JSON.stringify(userData));
+
+      // Fetch full profile in the background
+      authService.getProfile()
+        .then(fullProfile => {
+          setUser(fullProfile);
+          localStorage.setItem('user', JSON.stringify(fullProfile));
+        })
+        .catch(err => console.error('Background profile fetch failed', err));
+
+      return { success: true, user: userData };
     } catch (error) {
       console.error('Login error:', error);
-      return { 
-        success: false, 
-        error: error.message || 'Login failed. Please check your credentials.' 
+      return {
+        success: false,
+        error: error.message || 'Login failed. Please check your credentials.'
       };
     }
   };
 
   const logout = () => {
     localStorage.removeItem('token');
+    localStorage.removeItem('user');
     setToken(null);
     setUser(null);
     window.location.href = '/login';
   };
 
-  // ========== ROLE HELPERS ==========
-  
-const getUserRoleCode = () => {
-  if (!user) return null;
+  const getUserRoleCode = () => {
+    if (!user) return null;
 
-  let rawRole = null;
+    let rawRole = null;
 
-  // 1. Extract raw role value
-  if (typeof user.role === 'object' && user.role !== null) {
-    rawRole = user.role.code || user.role.name || null;
-  } else {
-    rawRole = user.role || null; // string from login response
-  }
+    if (typeof user.role === 'object' && user.role !== null) {
+      rawRole = user.role.code || user.role.name || null;
+    } else {
+      rawRole = user.role || null;
+    }
 
-  if (!rawRole) return null;
+    if (!rawRole) return null;
 
-  // 2. Normalize: lowercase, trim
-  const roleStr = rawRole.toString().trim();
-  const lowerRole = roleStr.toLowerCase();
-
-  // 3. Remove any trailing numeric suffix like _01, _02 etc.
-  //    (this regex matches underscore followed by one or more digits at the end)
-  const baseRole = lowerRole.replace(/_\d+$/, '');
-
-  // 4. Look up in map – first try baseRole, then fallback to full lowerRole
-  const mapped = ROLE_CODE_MAP[baseRole] || ROLE_CODE_MAP[lowerRole];
-
-  // 5. Return mapped constant or original uppercase (as fallback)
-  return mapped || roleStr.toUpperCase();
-};
+    const roleStr = rawRole.toString().trim();
+    const lowerRole = roleStr.toLowerCase();
+    const baseRole = lowerRole.replace(/_\d+$/, '');
+    const mapped = ROLE_CODE_MAP[baseRole] || ROLE_CODE_MAP[lowerRole];
+    return mapped || roleStr.toUpperCase();
+  };
 
   const hasRole = (roleCode) => {
     const userRole = getUserRoleCode();
@@ -99,6 +128,8 @@ const getUserRoleCode = () => {
     return roleCodes.includes(userRole);
   };
 
+  const isAuthenticated = !!token;
+
   const value = {
     user,
     token,
@@ -106,7 +137,6 @@ const getUserRoleCode = () => {
     login,
     logout,
     isAuthenticated,
-    // role helpers
     getUserRoleCode,
     hasRole,
     hasAnyRole,

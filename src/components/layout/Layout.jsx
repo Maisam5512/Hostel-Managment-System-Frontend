@@ -23,14 +23,17 @@ const Layout = ({ children }) => {
         />
       )}
       
-      {/* Sidebar - Fixed for all screens */}
+      {/* Sidebar */}
       <div className={`sidebar-wrapper ${sidebarOpen ? 'show' : ''}`}>
         <Sidebar onClose={closeSidebar} />
       </div>
       
       {/* Main Content */}
       <div className="main-content flex-grow-1 d-flex flex-column">
-        <Topbar onToggleSidebar={toggleSidebar} />
+        <Topbar 
+          onToggleSidebar={toggleSidebar} 
+          sidebarOpen={sidebarOpen}   // <-- pass state
+        />
         <main className="flex-grow-1 p-0" style={{ overflowY: 'auto' }}>
           <div className="p-3">
             {children}
@@ -42,3 +45,12 @@ const Layout = ({ children }) => {
 };
 
 export default Layout;
+
+
+
+
+
+
+
+
+

@@ -15,14 +15,12 @@ import FoodItems from './pages/FoodItems';
 import FoodOrders from './pages/FoodOrders';
 import Bills from './pages/Bills';
 import Visitors from './pages/Visitors';
-import Unauthorized from './pages/Unauthorized';
 import ProtectedRoute from './components/common/ProtectedRoute';
 
 const AppContent = () => {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
-      <Route path="/unauthorized" element={<Unauthorized />} />
       
       {/* ADMIN only */}
       <Route path="/members" element={
