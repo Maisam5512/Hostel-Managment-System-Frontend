@@ -14,6 +14,10 @@ const Roles = () => {
   const [selectedRole, setSelectedRole] = useState(null);
   const [successMessage, setSuccessMessage] = useState('');
 
+  // Validation errors
+  const [createErrors, setCreateErrors] = useState({});
+  const [editErrors, setEditErrors] = useState({});
+
   const { values, handleChange, resetForm, setValues } = useForm({
     name: '',
     code: '',
@@ -53,7 +57,27 @@ const Roles = () => {
     }
   };
 
+  // Validation function
+  const validateRoleForm = (formData) => {
+    const errors = {};
+    if (!formData.name || formData.name.trim() === '') {
+      errors.name = 'Role name is required';
+    }
+    if (!formData.code || formData.code.trim() === '') {
+      errors.code = 'Role code is required';
+    }
+    return errors;
+  };
+
   const handleCreateRole = async (formData) => {
+    // Validate
+    const errors = validateRoleForm(formData);
+    if (Object.keys(errors).length > 0) {
+      setCreateErrors(errors);
+      return;
+    }
+    setCreateErrors({});
+
     try {
       const response = await callApi('post', '/roles', {
         ...formData,
@@ -72,6 +96,14 @@ const Roles = () => {
   };
 
   const handleEditRole = async (formData) => {
+    // Validate
+    const errors = validateRoleForm(formData);
+    if (Object.keys(errors).length > 0) {
+      setEditErrors(errors);
+      return;
+    }
+    setEditErrors({});
+
     try {
       const response = await callApi('put', `/roles/${selectedRole._id}`, {
         ...formData,
@@ -112,6 +144,7 @@ const Roles = () => {
       code: role.code,
       permissions: role.permissions
     });
+    setEditErrors({}); // Clear previous errors
     setShowEditModal(true);
   };
 
@@ -381,12 +414,19 @@ const Roles = () => {
         </Row>
       </Container>
 
-      {/* Create Role Modal */}
-      <Modal show={showCreateModal} onHide={() => setShowCreateModal(false)} size="xl">
+      {/* Create Role Modal with validation */}
+      <Modal show={showCreateModal} onHide={() => { setShowCreateModal(false); setCreateErrors({}); }} size="xl">
         <Modal.Header closeButton>
           <Modal.Title>Create New Role</Modal.Title>
         </Modal.Header>
         <Modal.Body>
+          {Object.keys(createErrors).length > 0 && (
+            <Alert variant="danger" className="mb-3">
+              <ul className="mb-0">
+                {Object.values(createErrors).map((err, idx) => <li key={idx}>{err}</li>)}
+              </ul>
+            </Alert>
+          )}
           <Form onSubmit={(e) => {
             e.preventDefault();
             handleCreateRole(values);
@@ -401,8 +441,10 @@ const Roles = () => {
                     value={values.name}
                     onChange={handleChange}
                     placeholder="e.g., Manager, Accountant"
+                    isInvalid={!!createErrors.name}
                     required
                   />
+                  <Form.Control.Feedback type="invalid">{createErrors.name}</Form.Control.Feedback>
                 </Form.Group>
               </Col>
               <Col md={6}>
@@ -414,8 +456,10 @@ const Roles = () => {
                     value={values.code}
                     onChange={handleChange}
                     placeholder="e.g., MANAGER, ACCOUNTANT"
+                    isInvalid={!!createErrors.code}
                     required
                   />
+                  <Form.Control.Feedback type="invalid">{createErrors.code}</Form.Control.Feedback>
                   <Form.Text className="text-muted">
                     Use uppercase (e.g., ADMIN)
                   </Form.Text>
@@ -456,7 +500,7 @@ const Roles = () => {
             </Row>
 
             <div className="d-flex justify-content-end gap-2 mt-4">
-              <Button variant="secondary" onClick={() => setShowCreateModal(false)}>
+              <Button variant="secondary" onClick={() => { setShowCreateModal(false); setCreateErrors({}); }}>
                 Cancel
               </Button>
               <Button variant="primary" type="submit" disabled={loading}>
@@ -467,12 +511,19 @@ const Roles = () => {
         </Modal.Body>
       </Modal>
 
-      {/* Edit Role Modal */}
-      <Modal show={showEditModal} onHide={() => setShowEditModal(false)} size="xl">
+      {/* Edit Role Modal with validation */}
+      <Modal show={showEditModal} onHide={() => { setShowEditModal(false); setEditErrors({}); }} size="xl">
         <Modal.Header closeButton>
           <Modal.Title>Edit Role: {selectedRole?.name}</Modal.Title>
         </Modal.Header>
         <Modal.Body>
+          {Object.keys(editErrors).length > 0 && (
+            <Alert variant="danger" className="mb-3">
+              <ul className="mb-0">
+                {Object.values(editErrors).map((err, idx) => <li key={idx}>{err}</li>)}
+              </ul>
+            </Alert>
+          )}
           <Form onSubmit={(e) => {
             e.preventDefault();
             handleEditRole(editForm.values);
@@ -486,8 +537,10 @@ const Roles = () => {
                     name="name"
                     value={editForm.values.name}
                     onChange={editForm.handleChange}
+                    isInvalid={!!editErrors.name}
                     required
                   />
+                  <Form.Control.Feedback type="invalid">{editErrors.name}</Form.Control.Feedback>
                 </Form.Group>
               </Col>
               <Col md={6}>
@@ -498,8 +551,10 @@ const Roles = () => {
                     name="code"
                     value={editForm.values.code}
                     onChange={editForm.handleChange}
+                    isInvalid={!!editErrors.code}
                     required
                   />
+                  <Form.Control.Feedback type="invalid">{editErrors.code}</Form.Control.Feedback>
                 </Form.Group>
               </Col>
             </Row>
@@ -537,7 +592,7 @@ const Roles = () => {
             </Row>
 
             <div className="d-flex justify-content-end gap-2 mt-4">
-              <Button variant="secondary" onClick={() => setShowEditModal(false)}>
+              <Button variant="secondary" onClick={() => { setShowEditModal(false); setEditErrors({}); }}>
                 Cancel
               </Button>
               <Button variant="primary" type="submit" disabled={loading}>

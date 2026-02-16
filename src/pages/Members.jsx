@@ -25,10 +25,11 @@ const Members = () => {
   const [assignmentHistory, setAssignmentHistory] = useState([]);
   const [memberRoomDetails, setMemberRoomDetails] = useState({});
 
+  // Create form – uses aadhaarNumber (maps to backend cnic)
   const { values, handleChange, resetForm, setValues } = useForm({
     memberCode: '',
     fullName: '',
-    cnic: '',
+    aadhaarNumber: '',       // single field for Aadhaar number
     phone: '',
     guardianName: '',
     guardianPhone: '',
@@ -37,10 +38,11 @@ const Members = () => {
     joinDate: new Date().toISOString().split('T')[0]
   });
 
+  // Edit form – same structure
   const editForm = useForm({
     fullName: '',
     phone: '',
-    cnic: '',
+    aadhaarNumber: '',
     guardianName: '',
     guardianPhone: '',
     instituteName: '',
@@ -69,7 +71,7 @@ const Members = () => {
           registrationNumber: member.memberCode,
           fatherName: member.guardianName,
           phone: member.phone,
-          cnic: member.cnic,
+          aadhaarNumber: member.cnic || '',        // store CNIC as aadhaarNumber
           address: member.address,
           status: member.status,
           monthlyRent: 15000,
@@ -85,7 +87,8 @@ const Members = () => {
           memberCode: member.memberCode,
           isActive: member.isActive,
           currentRoomId: member.currentRoomId,
-          currentBedId: member.currentBedId
+          currentBedId: member.currentBedId,
+          cnic: member.cnic               // keep original for reference
         }));
         
         setMembers(transformedMembers);
@@ -103,11 +106,9 @@ const Members = () => {
     const details = {};
     
     for (const member of memberList) {
-      // First, try to get the active bed assignment for this member
       try {
         const assignmentsResponse = await bedAssignmentService.getBedAssignmentsByMember(member._id);
         if (assignmentsResponse.success && assignmentsResponse.data) {
-          // Find active assignment
           const activeAssignment = assignmentsResponse.data.find(
             assignment => assignment.status === 'ACTIVE'
           );
@@ -128,7 +129,6 @@ const Members = () => {
       } catch (err) {
         console.error(`Error fetching assignments for member ${member._id}:`, err);
         
-        // If assignment fetch fails, try to get details from member's currentBedId
         if (member.currentBedId) {
           try {
             const bedResponse = await bedService.getBedById(member.currentBedId);
@@ -140,7 +140,6 @@ const Members = () => {
                 }
               };
               
-              // Get room details from bed
               if (bedResponse.data.room_Id && bedResponse.data.room_Id._id) {
                 const roomResponse = await roomService.getRoomById(bedResponse.data.room_Id._id);
                 if (roomResponse.success && roomResponse.data) {
@@ -187,12 +186,13 @@ const Members = () => {
     }
   };
 
+  // Handle create – send aadhaarNumber as cnic
   const handleCreateMember = async (formData) => {
     try {
       const memberData = {
         memberCode: formData.memberCode,
         fullName: formData.fullName,
-        cnic: formData.cnic,
+        cnic: formData.aadhaarNumber,           // send as cnic
         phone: formData.phone,
         guardianName: formData.guardianName,
         guardianPhone: formData.guardianPhone || formData.phone,
@@ -217,12 +217,13 @@ const Members = () => {
     }
   };
 
+  // Handle edit – send aadhaarNumber as cnic
   const handleEditMember = async (formData) => {
     try {
       const updateData = {
         fullName: formData.fullName,
         phone: formData.phone,
-        cnic: formData.cnic,
+        cnic: formData.aadhaarNumber,           // send as cnic
         guardianName: formData.guardianName,
         guardianPhone: formData.guardianPhone,
         instituteName: formData.instituteName,
@@ -281,12 +282,13 @@ const Members = () => {
     }
   };
 
+  // Open edit modal – populate aadhaarNumber from member.cnic
   const openEditModal = (member) => {
     setSelectedMember(member);
     editForm.setValues({
       fullName: member.fullName || member.user?.fullName || '',
       phone: member.phone || '',
-      cnic: member.cnic || '',
+      aadhaarNumber: member.aadhaarNumber || '',
       guardianName: member.guardianName || '',
       guardianPhone: member.guardianPhone || member.phone || '',
       instituteName: member.instituteName || '',
@@ -492,7 +494,7 @@ const Members = () => {
           </Col>
         </Row>
 
-        {/* Members Table */}
+        {/* Members Table – ID Proof column now shows Aadhaar Number */}
         <Row>
           <Col>
             <Card className="border-0 shadow-sm">
@@ -504,6 +506,7 @@ const Members = () => {
                         <th>Member Details</th>
                         <th>Registration</th>
                         <th>Contact</th>
+                        <th>Aadhaar Number</th>
                         <th>Room/Bed</th>
                         <th>Rent/Due</th>
                         <th>Mess</th>
@@ -514,7 +517,7 @@ const Members = () => {
                     <tbody>
                       {filteredMembers.length === 0 ? (
                         <tr>
-                          <td colSpan="8" className="text-center py-4">
+                          <td colSpan="9" className="text-center py-4">
                             No members found
                           </td>
                         </tr>
@@ -547,10 +550,7 @@ const Members = () => {
                                   <Badge bg="secondary" className="px-2 py-1 mb-1">
                                     {member.registrationNumber || member.memberCode || `M-${member._id?.slice(-4).toUpperCase()}`}
                                   </Badge>
-                                  <div className="small text-muted">CNIC: {member.cnic || 'N/A'}</div>
-                                  <div className="small text-muted">
-                                    Joined: {member.joiningDate || 'N/A'}
-                                  </div>
+                                  <div className="small text-muted">Joined: {member.joiningDate || 'N/A'}</div>
                                 </div>
                               </td>
                               <td>
@@ -563,6 +563,13 @@ const Members = () => {
                                     {member.guardianPhone || 'No guardian phone'}
                                   </div>
                                 </div>
+                              </td>
+                              <td>
+                                {member.aadhaarNumber ? (
+                                  <span>{member.aadhaarNumber}</span>
+                                ) : (
+                                  <span className="text-muted">N/A</span>
+                                )}
                               </td>
                               <td>
                                 <div>
@@ -668,8 +675,7 @@ const Members = () => {
         </Row>
       </Container>
 
-      {/* All modals remain exactly the same as before */}
-      {/* Create Member Modal */}
+      {/* Create Member Modal – only Aadhaar Number field */}
       <Modal show={showCreateModal} onHide={() => setShowCreateModal(false)} size="lg">
         <Modal.Header closeButton>
           <Modal.Title>Register New Member</Modal.Title>
@@ -711,13 +717,13 @@ const Members = () => {
             <Row>
               <Col md={6}>
                 <Form.Group className="mb-3">
-                  <Form.Label>CNIC *</Form.Label>
+                  <Form.Label>Aadhaar Number *</Form.Label>
                   <Form.Control
                     type="text"
-                    name="cnic"
-                    value={values.cnic}
+                    name="aadhaarNumber"
+                    value={values.aadhaarNumber}
                     onChange={handleChange}
-                    placeholder="e.g., 12345-6789012-3"
+                    placeholder="Enter Aadhaar number"
                     required
                   />
                 </Form.Group>
@@ -816,7 +822,7 @@ const Members = () => {
         </Modal.Body>
       </Modal>
 
-      {/* Edit Member Modal */}
+      {/* Edit Member Modal – only Aadhaar Number field */}
       <Modal show={showEditModal} onHide={() => setShowEditModal(false)} size="lg">
         <Modal.Header closeButton>
           <Modal.Title>Edit Member: {selectedMember?.fullName || selectedMember?.user?.fullName}</Modal.Title>
@@ -856,11 +862,11 @@ const Members = () => {
             <Row>
               <Col md={6}>
                 <Form.Group className="mb-3">
-                  <Form.Label>CNIC *</Form.Label>
+                  <Form.Label>Aadhaar Number *</Form.Label>
                   <Form.Control
                     type="text"
-                    name="cnic"
-                    value={editForm.values.cnic}
+                    name="aadhaarNumber"
+                    value={editForm.values.aadhaarNumber}
                     onChange={editForm.handleChange}
                     required
                   />
@@ -929,7 +935,7 @@ const Members = () => {
         </Modal.Body>
       </Modal>
 
-      {/* Change Status Modal */}
+      {/* Change Status Modal – updated to show Aadhaar Number */}
       <Modal show={showStatusModal} onHide={() => setShowStatusModal(false)}>
         <Modal.Header closeButton>
           <Modal.Title>Change Member Status</Modal.Title>
@@ -944,6 +950,9 @@ const Members = () => {
                   {selectedMember.status}
                 </Badge>
               </p>
+              {selectedMember.aadhaarNumber && (
+                <p>Aadhaar: {selectedMember.aadhaarNumber}</p>
+              )}
               {memberRoomDetails[selectedMember._id] && (
                 <p>Current Room: {memberRoomDetails[selectedMember._id]?.roomInfo?.roomNumber || 'Unknown'}</p>
               )}
@@ -985,7 +994,7 @@ const Members = () => {
         </Modal.Body>
       </Modal>
 
-      {/* Assignment History Modal */}
+      {/* Assignment History Modal – unchanged */}
       <Modal show={showHistoryModal} onHide={() => setShowHistoryModal(false)} size="lg">
         <Modal.Header closeButton>
           <Modal.Title>Assignment History for {selectedMember?.fullName || selectedMember?.user?.fullName}</Modal.Title>
@@ -1037,7 +1046,7 @@ const Members = () => {
         </Modal.Footer>
       </Modal>
 
-      {/* Delete Confirmation Modal */}
+      {/* Delete Confirmation Modal – updated to show Aadhaar Number */}
       <Modal show={showDeleteModal} onHide={() => setShowDeleteModal(false)}>
         <Modal.Header closeButton>
           <Modal.Title>Deactivate Member</Modal.Title>
@@ -1053,7 +1062,9 @@ const Members = () => {
               <div className="small text-muted">
                 <p><strong>Member Details:</strong></p>
                 <p>Registration: {selectedMember.registrationNumber || selectedMember.memberCode}</p>
-                <p>CNIC: {selectedMember.cnic}</p>
+                {selectedMember.aadhaarNumber && (
+                  <p>Aadhaar: {selectedMember.aadhaarNumber}</p>
+                )}
                 <p>Status: {selectedMember.status}</p>
                 {memberRoomDetails[selectedMember._id] && (
                   <p>Current Room: {memberRoomDetails[selectedMember._id]?.roomInfo?.roomNumber || 'Unknown'}</p>

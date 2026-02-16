@@ -26,6 +26,12 @@ const FoodOrders = () => {
   const [isCreatingOrder, setIsCreatingOrder] = useState(false);
   const [isUpdatingBilling, setIsUpdatingBilling] = useState(false);
 
+  // Field‑specific validation errors
+  const [fieldErrors, setFieldErrors] = useState({
+    member: '',
+    foodItems: ''
+  });
+
   const [orderForm, setOrderForm] = useState({
     member: '',
     foodItems: [{ foodItemId: '', quantity: 1 }],
@@ -95,10 +101,13 @@ const FoodOrders = () => {
     }
   }, [showOrderModal, fetchFoodItemsForOrder]);
 
-  /* ================= CREATE ORDER - FIXED ================= */
+  /* ================= CREATE ORDER - VALIDATED ================= */
 
   const handleCreateOrder = async (e) => {
     e.preventDefault();
+
+    // Reset field errors
+    setFieldErrors({ member: '', foodItems: '' });
 
     try {
       setError('');
@@ -106,10 +115,12 @@ const FoodOrders = () => {
       setIsCreatingOrder(true);
 
       // Validation
+      const errors = { member: '', foodItems: '' };
+      let isValid = true;
+
       if (!orderForm.member) {
-        setError('Please select a member');
-        setIsCreatingOrder(false);
-        return;
+        errors.member = 'Please select a member';
+        isValid = false;
       }
 
       const validItems = orderForm.foodItems.filter(
@@ -117,7 +128,12 @@ const FoodOrders = () => {
       );
 
       if (validItems.length === 0) {
-        setError('Please add at least one food item');
+        errors.foodItems = 'Please add at least one food item';
+        isValid = false;
+      }
+
+      if (!isValid) {
+        setFieldErrors(errors);
         setIsCreatingOrder(false);
         return;
       }
@@ -180,7 +196,7 @@ const FoodOrders = () => {
     }
   };
 
-  /* ================= BILLING UPDATE - FIXED ================= */
+  /* ================= BILLING UPDATE ================= */
 
   const handleUpdateBilling = async () => {
     try {
@@ -246,6 +262,7 @@ const FoodOrders = () => {
   const handleAddOrder = () => {
     setError('');
     setSuccess('');
+    setFieldErrors({ member: '', foodItems: '' });
     setOrderForm({
       member: '',
       foodItems: [{ foodItemId: '', quantity: 1 }],
@@ -260,6 +277,10 @@ const FoodOrders = () => {
       ...prev,
       [name]: value
     }));
+    // Clear field error when user starts typing
+    if (fieldErrors[name]) {
+      setFieldErrors(prev => ({ ...prev, [name]: '' }));
+    }
   };
 
   const handleFoodItemChange = (index, field, value) => {
@@ -278,6 +299,10 @@ const FoodOrders = () => {
         foodItems: updatedItems
       };
     });
+    // Clear global food items error when user changes an item
+    if (fieldErrors.foodItems) {
+      setFieldErrors(prev => ({ ...prev, foodItems: '' }));
+    }
   };
 
   const addFoodItemRow = () => {
@@ -285,6 +310,10 @@ const FoodOrders = () => {
       ...prev,
       foodItems: [...prev.foodItems, { foodItemId: '', quantity: 1 }]
     }));
+    // Clear global food items error when adding a row
+    if (fieldErrors.foodItems) {
+      setFieldErrors(prev => ({ ...prev, foodItems: '' }));
+    }
   };
 
   const removeFoodItemRow = (index) => {
@@ -292,13 +321,22 @@ const FoodOrders = () => {
 
     setOrderForm(prev => {
       if (prev.foodItems.length <= 1) {
-        setError('At least one food item is required');
+        setFieldErrors(prev => ({ ...prev, foodItems: 'At least one food item is required' }));
         return prev;
+      }
+
+      const newItems = prev.foodItems.filter((_, i) => i !== index);
+      // After removal, if there are still valid items, clear the error
+      const hasValid = newItems.some(i => i.foodItemId && i.quantity > 0);
+      if (hasValid) {
+        setFieldErrors(prev => ({ ...prev, foodItems: '' }));
+      } else {
+        setFieldErrors(prev => ({ ...prev, foodItems: 'Please add at least one food item' }));
       }
 
       return {
         ...prev,
-        foodItems: prev.foodItems.filter((_, i) => i !== index)
+        foodItems: newItems
       };
     });
   };
@@ -563,7 +601,7 @@ const FoodOrders = () => {
           </Card.Body>
         </Card>
 
-        {/* Order Creation Modal */}
+        {/* Order Creation Modal with validation feedback */}
         <Modal 
           show={showOrderModal} 
           onHide={() => !isCreatingOrder && setShowOrderModal(false)} 
@@ -584,6 +622,7 @@ const FoodOrders = () => {
                   onChange={handleOrderInputChange}
                   required
                   disabled={loadingFoodItems || isCreatingOrder}
+                  isInvalid={!!fieldErrors.member}
                 >
                   <option value="">Choose member...</option>
                   {members.map(member => (
@@ -592,6 +631,9 @@ const FoodOrders = () => {
                     </option>
                   ))}
                 </Form.Select>
+                <Form.Control.Feedback type="invalid">
+                  {fieldErrors.member}
+                </Form.Control.Feedback>
               </Form.Group>
 
               <div className="mb-3">
@@ -607,6 +649,12 @@ const FoodOrders = () => {
                     + Add Item
                   </Button>
                 </div>
+
+                {fieldErrors.foodItems && (
+                  <Alert variant="danger" className="py-2 mb-2">
+                    <small>{fieldErrors.foodItems}</small>
+                  </Alert>
+                )}
 
                 {loadingFoodItems ? (
                   <div className="text-center py-3">

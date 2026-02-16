@@ -35,11 +35,12 @@ const Visitors = () => {
   const [filterStatus, setFilterStatus] = useState('ALL');
   const [searchTerm, setSearchTerm] = useState('');
 
-  // Form state
+  // Form state – updated to include idProof fields
   const [formData, setFormData] = useState({
     visitorName: '',
     visitorPhone: '',
-    visitorCNIC: '',
+    idProofType: '',       // dropdown
+    idProofNumber: '',     // text
     purpose: '',
     member: '',
     remarks: ''
@@ -87,19 +88,14 @@ const Visitors = () => {
       const memberMap = {};
       membersWithRoomInfo.forEach(m => { memberMap[m._id] = m; });
 
-      // Enrich visitors with full member details and filter out those whose member is not active
-      const enrichedVisitors = (visitorsResponse.data || [])
-        .map(visitor => {
-          if (visitor.member && memberMap[visitor.member._id || visitor.member]) {
-            const memberId = visitor.member._id || visitor.member;
-            visitor.member = memberMap[memberId]; // replace with full member object
-          }
-          return visitor;
-        })
-        .filter(visitor => {
-          // Keep only visitors whose member is an object with a name (i.e., enriched, meaning the member is active)
-          return visitor.member && typeof visitor.member === 'object' && visitor.member.name;
-        });
+      // Enrich visitors with full member details – keep visitors even if member is null
+      const enrichedVisitors = (visitorsResponse.data || []).map(visitor => {
+        if (visitor.member && memberMap[visitor.member._id || visitor.member]) {
+          const memberId = visitor.member._id || visitor.member;
+          visitor.member = memberMap[memberId]; // replace with full member object
+        }
+        return visitor;
+      });
 
       setVisitors(enrichedVisitors);
       setMembers(membersWithRoomInfo);
@@ -124,18 +120,32 @@ const Visitors = () => {
     }));
   };
 
-  // Handle check-in
+  // Handle check-in – build payload with idProof object
   const handleCheckIn = async (e) => {
     e.preventDefault();
     try {
-      const response = await visitorService.checkInVisitor(formData);
+      // Construct payload matching backend expectation
+      const payload = {
+        visitorName: formData.visitorName,
+        visitorPhone: formData.visitorPhone || undefined,
+        idProof: {
+          type: formData.idProofType,
+          number: formData.idProofNumber
+        },
+        purpose: formData.purpose,
+        member: formData.member,
+        remarks: formData.remarks || undefined
+      };
+
+      const response = await visitorService.checkInVisitor(payload);
       
       if (response.success) {
         setShowCheckInModal(false);
         setFormData({
           visitorName: '',
           visitorPhone: '',
-          visitorCNIC: '',
+          idProofType: '',
+          idProofNumber: '',
           purpose: '',
           member: '',
           remarks: ''
@@ -200,15 +210,18 @@ const Visitors = () => {
     return format(new Date(dateString), 'dd/MM/yyyy HH:mm');
   };
 
-  // Filter visitors based on search term
+  // Filter visitors based on search term – include idProof fields
   const filteredVisitors = visitors.filter(visitor => {
     if (!searchTerm) return true;
     
     const searchLower = searchTerm.toLowerCase();
+    const idProofType = visitor.idProof?.type || '';
+    const idProofNumber = visitor.idProof?.number || '';
     return (
       visitor.visitorName?.toLowerCase().includes(searchLower) ||
       visitor.visitorPhone?.toLowerCase().includes(searchLower) ||
-      visitor.visitorCNIC?.toLowerCase().includes(searchLower) ||
+      idProofType.toLowerCase().includes(searchLower) ||
+      idProofNumber.toLowerCase().includes(searchLower) ||
       visitor.purpose?.toLowerCase().includes(searchLower) ||
       (visitor.member?.name && visitor.member.name.toLowerCase().includes(searchLower))
     );
@@ -268,7 +281,7 @@ const Visitors = () => {
                 <InputGroup>
                   <Form.Control
                     type="text"
-                    placeholder="Search by name, phone, CNIC, purpose..."
+                    placeholder="Search by name, phone, ID proof, purpose..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                   />
@@ -348,6 +361,7 @@ const Visitors = () => {
                 <tr>
                   <th className="ps-3">Visitor</th>
                   <th>Contact</th>
+                  <th>ID Proof</th>
                   <th>Visiting Member</th>
                   <th>Purpose</th>
                   <th>Check-in</th>
@@ -359,7 +373,7 @@ const Visitors = () => {
               <tbody>
                 {filteredVisitors.length === 0 ? (
                   <tr>
-                    <td colSpan="8" className="text-center py-4">
+                    <td colSpan="9" className="text-center py-4">
                       <div className="text-muted">
                         <span style={{ fontSize: '48px' }}>👥</span>
                         <p className="mt-2">No visitors found</p>
@@ -372,16 +386,23 @@ const Visitors = () => {
                       <td className="ps-3">
                         <div>
                           <strong>{visitor.visitorName}</strong>
-                          {visitor.visitorCNIC && (
-                            <div className="small text-muted">
-                              CNIC: {visitor.visitorCNIC}
-                            </div>
-                          )}
                         </div>
                       </td>
                       <td>
                         {visitor.visitorPhone && (
                           <div>{visitor.visitorPhone}</div>
+                        )}
+                      </td>
+                      <td>
+                        {visitor.idProof ? (
+                          <div>
+                            <span className="badge bg-info me-1">
+                              {visitor.idProof.type.replace('_', ' ')}
+                            </span>
+                            <span className="small">{visitor.idProof.number}</span>
+                          </div>
+                        ) : (
+                          'N/A'
                         )}
                       </td>
                       <td>
@@ -449,7 +470,7 @@ const Visitors = () => {
         </Card.Body>
       </Card>
 
-      {/* Check-in Modal */}
+      {/* Check-in Modal – updated with ID proof fields */}
       <Modal show={showCheckInModal} onHide={() => setShowCheckInModal(false)} size="lg">
         <Modal.Header closeButton>
           <Modal.Title>👤 Check-in Visitor</Modal.Title>
@@ -482,18 +503,42 @@ const Visitors = () => {
                   />
                 </Form.Group>
               </Col>
+
+              {/* ID Proof Type Dropdown */}
               <Col md={6}>
                 <Form.Group>
-                  <Form.Label>CNIC</Form.Label>
+                  <Form.Label>ID Proof Type *</Form.Label>
+                  <Form.Select
+                    name="idProofType"
+                    value={formData.idProofType}
+                    onChange={handleInputChange}
+                    required
+                  >
+                    <option value="">Select ID Type</option>
+                    <option value="AADHAR_CARD">Aadhaar</option>
+                    <option value="DRIVING_LICENSE">Driving License</option>
+                    <option value="PASSPORT">Passport</option>
+                    <option value="VOTER_ID">Voter ID</option>
+                    <option value="OTHER">Other</option>
+                  </Form.Select>
+                </Form.Group>
+              </Col>
+
+              {/* ID Proof Number */}
+              <Col md={6}>
+                <Form.Group>
+                  <Form.Label>ID Proof Number *</Form.Label>
                   <Form.Control
                     type="text"
-                    name="visitorCNIC"
-                    value={formData.visitorCNIC}
+                    name="idProofNumber"
+                    value={formData.idProofNumber}
                     onChange={handleInputChange}
-                    placeholder="Enter CNIC (optional)"
+                    required
+                    placeholder="Enter ID number"
                   />
                 </Form.Group>
               </Col>
+
               <Col md={6}>
                 <Form.Group>
                   <Form.Label>Purpose *</Form.Label>
@@ -525,7 +570,7 @@ const Visitors = () => {
                   </Form.Select>
                 </Form.Group>
               </Col>
-              <Col md={6}>
+              <Col md={12}>
                 <Form.Group>
                   <Form.Label>Remarks</Form.Label>
                   <Form.Control
@@ -615,7 +660,7 @@ const Visitors = () => {
         </Modal.Footer>
       </Modal>
 
-      {/* Details Modal */}
+      {/* Details Modal – updated to show ID proof */}
       <Modal show={showDetailsModal} onHide={() => setShowDetailsModal(false)}>
         <Modal.Header closeButton>
           <Modal.Title>👤 Visitor Details</Modal.Title>
@@ -632,8 +677,17 @@ const Visitors = () => {
                 <p>{selectedVisitor.visitorPhone || 'N/A'}</p>
               </div>
               <div className="mb-3">
-                <h6 className="text-muted mb-1">CNIC</h6>
-                <p>{selectedVisitor.visitorCNIC || 'N/A'}</p>
+                <h6 className="text-muted mb-1">ID Proof</h6>
+                {selectedVisitor.idProof ? (
+                  <p>
+                    <span className="badge bg-info me-2">
+                      {selectedVisitor.idProof.type.replace('_', ' ')}
+                    </span>
+                    {selectedVisitor.idProof.number}
+                  </p>
+                ) : (
+                  <p>N/A</p>
+                )}
               </div>
               <div className="mb-3">
                 <h6 className="text-muted mb-1">Purpose</h6>

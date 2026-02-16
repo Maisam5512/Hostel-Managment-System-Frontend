@@ -15,6 +15,10 @@ const Users = () => {
   const [successMessage, setSuccessMessage] = useState('');
   const [filterRole, setFilterRole] = useState('');
 
+  // Validation errors
+  const [createErrors, setCreateErrors] = useState({});
+  const [editErrors, setEditErrors] = useState({});
+
   const { values, handleChange, resetForm, setValues } = useForm({
     fullName: '',
     email: '',
@@ -59,7 +63,61 @@ const Users = () => {
     }
   };
 
+  // Validation function for create user
+  const validateCreateForm = (formData) => {
+    const errors = {};
+    if (!formData.fullName || formData.fullName.trim() === '') {
+      errors.fullName = 'Full name is required';
+    }
+    if (!formData.email || formData.email.trim() === '') {
+      errors.email = 'Email is required';
+    } else {
+      // Basic email format validation
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(formData.email)) {
+        errors.email = 'Enter a valid email address';
+      }
+    }
+    if (!formData.password) {
+      errors.password = 'Password is required';
+    } else if (formData.password.length < 6) {
+      errors.password = 'Password must be at least 6 characters';
+    }
+    if (!formData.roleId) {
+      errors.roleId = 'Role is required';
+    }
+    return errors;
+  };
+
+  // Validation function for edit user
+  const validateEditForm = (formData) => {
+    const errors = {};
+    if (!formData.fullName || formData.fullName.trim() === '') {
+      errors.fullName = 'Full name is required';
+    }
+    if (!formData.email || formData.email.trim() === '') {
+      errors.email = 'Email is required';
+    } else {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(formData.email)) {
+        errors.email = 'Enter a valid email address';
+      }
+    }
+    if (!formData.roleId) {
+      errors.roleId = 'Role is required';
+    }
+    return errors;
+  };
+
   const handleCreateUser = async (formData) => {
+    // Validate
+    const errors = validateCreateForm(formData);
+    if (Object.keys(errors).length > 0) {
+      setCreateErrors(errors);
+      return;
+    }
+    setCreateErrors({});
+
     try {
       const response = await callApi('post', '/auth/signup', {
         ...formData,
@@ -78,6 +136,14 @@ const Users = () => {
   };
 
   const handleEditUser = async (formData) => {
+    // Validate
+    const errors = validateEditForm(formData);
+    if (Object.keys(errors).length > 0) {
+      setEditErrors(errors);
+      return;
+    }
+    setEditErrors({});
+
     try {
       const response = await callApi('put', `/users/${selectedUser._id}`, formData);
       if (response.message) {
@@ -94,7 +160,7 @@ const Users = () => {
 
   const handleToggleStatus = async (user) => {
     if (window.confirm(`Are you sure you want to ${user.isActive ? 'deactivate' : 'activate'} this user?`)) {
-              console.log('Toggled User Id', user._id );
+      console.log('Toggled User Id', user._id );
 
       try {
         const response = await callApi('patch', `/users/${user._id}/status`,{});
@@ -119,6 +185,7 @@ const Users = () => {
       phone: user.phone || '',
       isActive: user.isActive
     });
+    setEditErrors({}); // Clear previous errors
     setShowEditModal(true);
   };
 
@@ -373,12 +440,19 @@ const Users = () => {
         </Row>
       </Container>
 
-      {/* Create User Modal */}
-      <Modal show={showCreateModal} onHide={() => setShowCreateModal(false)} size="lg">
+      {/* Create User Modal with validation */}
+      <Modal show={showCreateModal} onHide={() => { setShowCreateModal(false); setCreateErrors({}); }} size="lg">
         <Modal.Header closeButton>
           <Modal.Title>Create New User</Modal.Title>
         </Modal.Header>
         <Modal.Body>
+          {Object.keys(createErrors).length > 0 && (
+            <Alert variant="danger" className="mb-3">
+              <ul className="mb-0">
+                {Object.values(createErrors).map((err, idx) => <li key={idx}>{err}</li>)}
+              </ul>
+            </Alert>
+          )}
           <Form onSubmit={(e) => {
             e.preventDefault();
             handleCreateUser(values);
@@ -393,8 +467,10 @@ const Users = () => {
                     value={values.fullName}
                     onChange={handleChange}
                     placeholder="Enter full name"
+                    isInvalid={!!createErrors.fullName}
                     required
                   />
+                  <Form.Control.Feedback type="invalid">{createErrors.fullName}</Form.Control.Feedback>
                 </Form.Group>
               </Col>
               <Col md={6}>
@@ -406,8 +482,10 @@ const Users = () => {
                     value={values.email}
                     onChange={handleChange}
                     placeholder="Enter email address"
+                    isInvalid={!!createErrors.email}
                     required
                   />
+                  <Form.Control.Feedback type="invalid">{createErrors.email}</Form.Control.Feedback>
                 </Form.Group>
               </Col>
             </Row>
@@ -421,8 +499,10 @@ const Users = () => {
                     value={values.password}
                     onChange={handleChange}
                     placeholder="Enter password"
+                    isInvalid={!!createErrors.password}
                     required
                   />
+                  <Form.Control.Feedback type="invalid">{createErrors.password}</Form.Control.Feedback>
                   <Form.Text className="text-muted">
                     Minimum 6 characters
                   </Form.Text>
@@ -449,6 +529,7 @@ const Users = () => {
                     name="roleId"
                     value={values.roleId}
                     onChange={handleChange}
+                    isInvalid={!!createErrors.roleId}
                     required
                   >
                     <option value="">Select a role</option>
@@ -456,6 +537,7 @@ const Users = () => {
                       <option key={role._id} value={role._id}>{role.name}</option>
                     ))}
                   </Form.Select>
+                  <Form.Control.Feedback type="invalid">{createErrors.roleId}</Form.Control.Feedback>
                 </Form.Group>
               </Col>
               <Col md={6}>
@@ -477,7 +559,7 @@ const Users = () => {
               </Col>
             </Row>
             <div className="d-flex justify-content-end gap-2">
-              <Button variant="secondary" onClick={() => setShowCreateModal(false)}>
+              <Button variant="secondary" onClick={() => { setShowCreateModal(false); setCreateErrors({}); }}>
                 Cancel
               </Button>
               <Button variant="primary" type="submit" disabled={loading}>
@@ -488,12 +570,19 @@ const Users = () => {
         </Modal.Body>
       </Modal>
 
-      {/* Edit User Modal */}
-      <Modal show={showEditModal} onHide={() => setShowEditModal(false)} size="lg">
+      {/* Edit User Modal with validation */}
+      <Modal show={showEditModal} onHide={() => { setShowEditModal(false); setEditErrors({}); }} size="lg">
         <Modal.Header closeButton>
           <Modal.Title>Edit User: {selectedUser?.fullName}</Modal.Title>
         </Modal.Header>
         <Modal.Body>
+          {Object.keys(editErrors).length > 0 && (
+            <Alert variant="danger" className="mb-3">
+              <ul className="mb-0">
+                {Object.values(editErrors).map((err, idx) => <li key={idx}>{err}</li>)}
+              </ul>
+            </Alert>
+          )}
           <Form onSubmit={(e) => {
             e.preventDefault();
             handleEditUser(editForm.values);
@@ -507,8 +596,10 @@ const Users = () => {
                     name="fullName"
                     value={editForm.values.fullName}
                     onChange={editForm.handleChange}
+                    isInvalid={!!editErrors.fullName}
                     required
                   />
+                  <Form.Control.Feedback type="invalid">{editErrors.fullName}</Form.Control.Feedback>
                 </Form.Group>
               </Col>
               <Col md={6}>
@@ -519,8 +610,10 @@ const Users = () => {
                     name="email"
                     value={editForm.values.email}
                     onChange={editForm.handleChange}
+                    isInvalid={!!editErrors.email}
                     required
                   />
+                  <Form.Control.Feedback type="invalid">{editErrors.email}</Form.Control.Feedback>
                 </Form.Group>
               </Col>
             </Row>
@@ -544,6 +637,7 @@ const Users = () => {
                     name="roleId"
                     value={editForm.values.roleId}
                     onChange={editForm.handleChange}
+                    isInvalid={!!editErrors.roleId}
                     required
                   >
                     <option value="">Select a role</option>
@@ -551,6 +645,7 @@ const Users = () => {
                       <option key={role._id} value={role._id}>{role.name}</option>
                     ))}
                   </Form.Select>
+                  <Form.Control.Feedback type="invalid">{editErrors.roleId}</Form.Control.Feedback>
                 </Form.Group>
               </Col>
             </Row>
@@ -569,7 +664,7 @@ const Users = () => {
               />
             </Form.Group>
             <div className="d-flex justify-content-end gap-2">
-              <Button variant="secondary" onClick={() => setShowEditModal(false)}>
+              <Button variant="secondary" onClick={() => { setShowEditModal(false); setEditErrors({}); }}>
                 Cancel
               </Button>
               <Button variant="primary" type="submit" disabled={loading}>

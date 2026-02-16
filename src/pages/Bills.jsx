@@ -56,10 +56,16 @@ const Bills = () => {
     remarks: ''
   });
   
+  // Validation errors for create bill
+  const [createErrors, setCreateErrors] = useState({});
+  
   // Form state for payment
   const [paymentForm, setPaymentForm] = useState({
     amount: ''
   });
+  
+  // Validation error for payment
+  const [paymentError, setPaymentError] = useState('');
   
   // Form state for editing bill (ONLY remarks can be edited according to API)
   const [editForm, setEditForm] = useState({
@@ -234,6 +240,10 @@ const Bills = () => {
       ...prev,
       [name]: value
     }));
+    // Clear field-specific error when user changes it
+    if (createErrors[name]) {
+      setCreateErrors(prev => ({ ...prev, [name]: '' }));
+    }
   };
   
   const handleExtraItemChange = (index, field, value) => {
@@ -248,6 +258,10 @@ const Bills = () => {
         extraItems: updatedItems
       };
     });
+    // Clear extra items errors when user edits any extra item
+    if (createErrors.extraItems) {
+      setCreateErrors(prev => ({ ...prev, extraItems: '' }));
+    }
   };
   
   const addExtraItemRow = () => {
@@ -270,6 +284,7 @@ const Bills = () => {
       ...prev,
       [name]: parseFloat(value) || ''
     }));
+    setPaymentError('');
   };
   
   const handleEditFormChange = (e) => {
@@ -280,20 +295,59 @@ const Bills = () => {
     }));
   };
   
+  /* ================= VALIDATION FUNCTIONS ================= */
+  
+  const validateCreateBill = () => {
+    const errors = {};
+    
+    if (!billForm.member) {
+      errors.member = 'Please select a member';
+    }
+    
+    if (!billForm.billMonth) {
+      errors.billMonth = 'Bill month is required';
+    }
+    
+    // Validate extra items: if title exists, amount must be >0; if amount exists, title must be non-empty
+    const invalidExtraItems = billForm.extraItems.some(item => 
+      (item.title && (!item.amount || item.amount <= 0)) || 
+      (item.amount > 0 && (!item.title || !item.title.trim()))
+    );
+    
+    if (invalidExtraItems) {
+      errors.extraItems = 'Each extra item must have a title and a positive amount';
+    }
+    
+    return errors;
+  };
+  
+  const validatePayment = () => {
+    if (!paymentForm.amount || paymentForm.amount <= 0) {
+      return 'Please enter a valid payment amount';
+    }
+    if (selectedBill && paymentForm.amount > selectedBill.dueAmount) {
+      return `Payment amount cannot exceed due amount (${formatCurrency(selectedBill.dueAmount)})`;
+    }
+    return '';
+  };
+  
   /* ================= ACTION HANDLERS ================= */
   
   const handleCreateBill = async (e) => {
     e.preventDefault();
+    
+    // Validate
+    const errors = validateCreateBill();
+    if (Object.keys(errors).length > 0) {
+      setCreateErrors(errors);
+      return;
+    }
+    setCreateErrors({});
+    
     try {
       setError('');
       setSuccess('');
       setLoadingAction(true);
-      
-      if (!billForm.member) {
-        setError('Please select a member');
-        setLoadingAction(false);
-        return;
-      }
       
       const billData = {
         member: billForm.member,
@@ -384,20 +438,21 @@ const Bills = () => {
     setPaymentForm({
       amount: bill.dueAmount || 0
     });
+    setPaymentError('');
     setShowPaymentModal(true);
   };
   
   const handleSubmitPayment = async () => {
+    const errorMsg = validatePayment();
+    if (errorMsg) {
+      setPaymentError(errorMsg);
+      return;
+    }
+    
     try {
       setError('');
       setSuccess('');
       setLoadingAction(true);
-      
-      if (!paymentForm.amount || paymentForm.amount <= 0) {
-        setError('Please enter a valid payment amount');
-        setLoadingAction(false);
-        return;
-      }
       
       const response = await billService.addPayment(selectedBill._id, paymentForm.amount);
       
@@ -433,39 +488,25 @@ const Bills = () => {
       
       const response = await billService.delete(selectedBill._id);
       
-      // CRITICAL FIX: Properly check API response
-      // Successful delete: { success: true, message: "Bill deleted successfully" }
-      // Failed delete: { success: false, message: "Bill with payments cannot be deleted" }
-      
       if (response && response.success === true) {
-        // SUCCESS: Bill deleted
         setSuccess(response.message || 'Bill deleted successfully!');
         
-        // Update local state immediately for better UX
         setBills(prev => prev.filter(bill => bill._id !== selectedBill._id));
-        
-        // Recalculate statistics
         calculateStatistics(bills.filter(bill => bill._id !== selectedBill._id));
         
-        // Close modal after showing success message
         setTimeout(() => {
           setShowDeleteModal(false);
           setSelectedBill(null);
         }, 1500);
         
       } else {
-        // FAILURE: Bill cannot be deleted (has payments)
         const errorMsg = response?.message || 'Bill cannot be deleted. It may have payments recorded.';
         setError(errorMsg);
-        
-        // Keep modal open to show the error message
-        // Don't close the modal when deletion fails
       }
       
     } catch (err) {
       console.error('Error in handleConfirmDelete:', err);
       
-      // Handle different error formats
       let errorMsg = 'Failed to delete bill';
       
       if (err && typeof err === 'object') {
@@ -474,7 +515,6 @@ const Bills = () => {
         } else if (err.response?.data?.message) {
           errorMsg = err.response.data.message;
         } else if (err.success === false && err.message) {
-          // This is the server's error response { success: false, message: "..." }
           errorMsg = err.message;
         }
       } else if (typeof err === 'string') {
@@ -483,7 +523,6 @@ const Bills = () => {
       
       setError(errorMsg);
       
-      // Close modal for network errors, keep open for payment errors
       if (!errorMsg.toLowerCase().includes('payment') && 
           !errorMsg.toLowerCase().includes('cannot be deleted')) {
         setTimeout(() => {
@@ -897,8 +936,8 @@ const Bills = () => {
 
         {/* ================= MODALS ================= */}
 
-        {/* Create Bill Modal */}
-        <Modal show={showCreateModal} onHide={() => setShowCreateModal(false)} size="lg" centered>
+        {/* Create Bill Modal with validation */}
+        <Modal show={showCreateModal} onHide={() => { setShowCreateModal(false); setCreateErrors({}); }} size="lg" centered>
           <Modal.Header closeButton className="border-0 pb-0">
             <Modal.Title>
               <div className="d-flex align-items-center">
@@ -914,6 +953,13 @@ const Bills = () => {
           </Modal.Header>
           <Form onSubmit={handleCreateBill}>
             <Modal.Body className="pt-0">
+              {Object.keys(createErrors).length > 0 && (
+                <Alert variant="danger" className="mb-3">
+                  <ul className="mb-0">
+                    {Object.values(createErrors).map((err, idx) => <li key={idx}>{err}</li>)}
+                  </ul>
+                </Alert>
+              )}
               <Form.Group className="mb-3">
                 <Form.Label className="fw-bold">
                   <FaUser className="me-2" /> Select Member *
@@ -924,6 +970,7 @@ const Bills = () => {
                   onChange={handleBillFormChange}
                   required
                   className="form-control-lg"
+                  isInvalid={!!createErrors.member}
                 >
                   <option value="">Choose member...</option>
                   {members.map(member => (
@@ -932,6 +979,9 @@ const Bills = () => {
                     </option>
                   ))}
                 </Form.Select>
+                <Form.Control.Feedback type="invalid">
+                  {createErrors.member}
+                </Form.Control.Feedback>
               </Form.Group>
 
               <Form.Group className="mb-3">
@@ -945,7 +995,11 @@ const Bills = () => {
                   onChange={handleBillFormChange}
                   required
                   className="form-control-lg"
+                  isInvalid={!!createErrors.billMonth}
                 />
+                <Form.Control.Feedback type="invalid">
+                  {createErrors.billMonth}
+                </Form.Control.Feedback>
                 <Form.Text className="text-muted">
                   Bill will include room rent (if assigned) and all unbilled food orders
                 </Form.Text>
@@ -966,6 +1020,11 @@ const Bills = () => {
                   </div>
                 </Card.Header>
                 <Card.Body>
+                  {createErrors.extraItems && (
+                    <Alert variant="danger" className="py-2 mb-2">
+                      <small>{createErrors.extraItems}</small>
+                    </Alert>
+                  )}
                   {billForm.extraItems.map((item, index) => (
                     <Row key={index} className="mb-3 align-items-center">
                       <Col md={6}>
@@ -1039,7 +1098,7 @@ const Bills = () => {
               </Alert>
             </Modal.Body>
             <Modal.Footer className="border-top-0">
-              <Button variant="light" onClick={() => setShowCreateModal(false)}>
+              <Button variant="light" onClick={() => { setShowCreateModal(false); setCreateErrors({}); }}>
                 Cancel
               </Button>
               <Button variant="orange" type="submit" disabled={loadingAction}>
@@ -1286,8 +1345,8 @@ const Bills = () => {
           </Modal.Footer>
         </Modal>
 
-        {/* Add Payment Modal */}
-        <Modal show={showPaymentModal} onHide={() => setShowPaymentModal(false)} centered>
+        {/* Add Payment Modal with validation */}
+        <Modal show={showPaymentModal} onHide={() => { setShowPaymentModal(false); setPaymentError(''); }} centered>
           <Modal.Header closeButton className="border-0 pb-0">
             <Modal.Title>
               <div className="d-flex align-items-center">
@@ -1340,7 +1399,11 @@ const Bills = () => {
                       value={paymentForm.amount}
                       onChange={handlePaymentFormChange}
                       placeholder="Enter payment amount"
+                      isInvalid={!!paymentError}
                     />
+                    <Form.Control.Feedback type="invalid">
+                      {paymentError}
+                    </Form.Control.Feedback>
                   </InputGroup>
                   <Form.Text className="text-muted">
                     Maximum: {formatCurrency(selectedBill.dueAmount)}
@@ -1350,7 +1413,7 @@ const Bills = () => {
             )}
           </Modal.Body>
           <Modal.Footer className="border-top-0">
-            <Button variant="light" onClick={() => setShowPaymentModal(false)}>
+            <Button variant="light" onClick={() => { setShowPaymentModal(false); setPaymentError(''); }}>
               Cancel
             </Button>
             <Button 

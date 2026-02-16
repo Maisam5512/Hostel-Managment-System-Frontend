@@ -30,6 +30,9 @@ const FoodItems = () => {
     isActive: ''
   });
 
+  // Validation errors for the create/edit form
+  const [validationErrors, setValidationErrors] = useState({});
+
   const [formData, setFormData] = useState({
     name: '',
     category: 'BREAKFAST',
@@ -82,22 +85,40 @@ const FoodItems = () => {
       ...formData,
       [name]: type === 'checkbox' ? checked : value
     });
+    // Clear validation error for this field when user types
+    if (validationErrors[name]) {
+      setValidationErrors(prev => ({ ...prev, [name]: null }));
+    }
+  };
+
+  // Validation function
+  const validateForm = () => {
+    const errors = {};
+    if (!formData.name || formData.name.trim() === '') {
+      errors.name = 'Food item name is required';
+    }
+    if (!formData.price || formData.price <= 0) {
+      errors.price = 'Valid price is required (greater than 0)';
+    } else if (isNaN(formData.price)) {
+      errors.price = 'Price must be a number';
+    }
+    return errors;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    // Validate
+    const errors = validateForm();
+    if (Object.keys(errors).length > 0) {
+      setValidationErrors(errors);
+      return;
+    }
+    setValidationErrors({});
+
     try {
       setError('');
       setSuccess('');
-
-      if (!formData.name.trim()) {
-        setError('Food item name is required');
-        return;
-      }
-      if (!formData.price || formData.price <= 0) {
-        setError('Valid price is required');
-        return;
-      }
 
       let response;
       if (selectedItem) {
@@ -131,6 +152,7 @@ const FoodItems = () => {
       price: item.price,
       isActive: item.isActive
     });
+    setValidationErrors({}); // Clear any previous errors
     setShowModal(true);
   };
 
@@ -138,7 +160,6 @@ const FoodItems = () => {
     try {
       const response = await foodItemService.delete(selectedItem._id);
       
-      // If the API returns a success flag, check it; otherwise treat any 2xx as success.
       if (response && response.success === false) {
         setError(response.message || 'Failed to deactivate food item');
       } else {
@@ -161,6 +182,7 @@ const FoodItems = () => {
       price: '',
       isActive: true
     });
+    setValidationErrors({});
     setShowModal(true);
   };
 
@@ -173,6 +195,7 @@ const FoodItems = () => {
       price: '',
       isActive: true
     });
+    setValidationErrors({});
   };
 
   const getCategoryBadge = (category) => {
@@ -373,7 +396,7 @@ const FoodItems = () => {
           </Card.Body>
         </Card>
 
-        {/* Add/Edit Modal */}
+        {/* Add/Edit Modal with validation */}
         <Modal show={showModal} onHide={handleCloseModal}>
           <Modal.Header closeButton>
             <Modal.Title>
@@ -382,6 +405,15 @@ const FoodItems = () => {
           </Modal.Header>
           <Form onSubmit={handleSubmit}>
             <Modal.Body>
+              {Object.keys(validationErrors).length > 0 && (
+                <Alert variant="danger" className="mb-3">
+                  <ul className="mb-0">
+                    {Object.values(validationErrors).map((err, idx) => (
+                      <li key={idx}>{err}</li>
+                    ))}
+                  </ul>
+                </Alert>
+              )}
               <Form.Group className="mb-3">
                 <Form.Label>Name *</Form.Label>
                 <Form.Control
@@ -389,9 +421,12 @@ const FoodItems = () => {
                   name="name"
                   value={formData.name}
                   onChange={handleInputChange}
-                  required
+                  isInvalid={!!validationErrors.name}
                   placeholder="Enter food item name"
                 />
+                <Form.Control.Feedback type="invalid">
+                  {validationErrors.name}
+                </Form.Control.Feedback>
               </Form.Group>
 
               <Form.Group className="mb-3">
@@ -400,7 +435,6 @@ const FoodItems = () => {
                   name="category"
                   value={formData.category}
                   onChange={handleInputChange}
-                  required
                 >
                   {categories.map(cat => (
                     <option key={cat.value} value={cat.value}>
@@ -417,11 +451,14 @@ const FoodItems = () => {
                   name="price"
                   value={formData.price}
                   onChange={handleInputChange}
-                  required
                   min="1"
                   step="0.01"
+                  isInvalid={!!validationErrors.price}
                   placeholder="Enter price"
                 />
+                <Form.Control.Feedback type="invalid">
+                  {validationErrors.price}
+                </Form.Control.Feedback>
               </Form.Group>
 
               <Form.Group className="mb-3">

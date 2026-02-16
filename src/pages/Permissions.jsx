@@ -14,6 +14,10 @@ const Permissions = () => {
   const [successMessage, setSuccessMessage] = useState('');
   const [filterModule, setFilterModule] = useState('');
 
+  // Validation errors
+  const [createErrors, setCreateErrors] = useState({});
+  const [editErrors, setEditErrors] = useState({});
+
   const { values, handleChange, resetForm, setValues } = useForm({
     name: '',
     key: '',
@@ -43,7 +47,30 @@ const Permissions = () => {
     }
   };
 
+  // Validation function for create/edit
+  const validatePermissionForm = (formData) => {
+    const errors = {};
+    if (!formData.name || formData.name.trim() === '') {
+      errors.name = 'Permission name is required';
+    }
+    if (!formData.key || formData.key.trim() === '') {
+      errors.key = 'Permission key is required';
+    }
+    if (!formData.module || formData.module.trim() === '') {
+      errors.module = 'Module is required';
+    }
+    return errors;
+  };
+
   const handleCreatePermission = async (formData) => {
+    // Validate
+    const errors = validatePermissionForm(formData);
+    if (Object.keys(errors).length > 0) {
+      setCreateErrors(errors);
+      return;
+    }
+    setCreateErrors({});
+
     try {
       const response = await callApi('post', '/permissions', formData);
       if (response.success) {
@@ -59,6 +86,14 @@ const Permissions = () => {
   };
 
   const handleEditPermission = async (formData) => {
+    // Validate
+    const errors = validatePermissionForm(formData);
+    if (Object.keys(errors).length > 0) {
+      setEditErrors(errors);
+      return;
+    }
+    setEditErrors({});
+
     try {
       const response = await callApi('put', `/permissions/${selectedPermission._id}`, formData);
       if (response.success) {
@@ -111,6 +146,7 @@ const Permissions = () => {
       module: permission.module,
       description: permission.description
     });
+    setEditErrors({}); // Clear previous errors
     setShowEditModal(true);
   };
 
@@ -366,12 +402,19 @@ const Permissions = () => {
         </Row>
       </Container>
 
-      {/* Create Permission Modal */}
-      <Modal show={showCreateModal} onHide={() => setShowCreateModal(false)} size="lg">
+      {/* Create Permission Modal with validation */}
+      <Modal show={showCreateModal} onHide={() => { setShowCreateModal(false); setCreateErrors({}); }} size="lg">
         <Modal.Header closeButton>
           <Modal.Title>Create New Permission</Modal.Title>
         </Modal.Header>
         <Modal.Body>
+          {Object.keys(createErrors).length > 0 && (
+            <Alert variant="danger" className="mb-3">
+              <ul className="mb-0">
+                {Object.values(createErrors).map((err, idx) => <li key={idx}>{err}</li>)}
+              </ul>
+            </Alert>
+          )}
           <Form onSubmit={(e) => {
             e.preventDefault();
             handleCreatePermission(values);
@@ -386,8 +429,10 @@ const Permissions = () => {
                     value={values.name}
                     onChange={handleChange}
                     placeholder="e.g., User Create Access"
+                    isInvalid={!!createErrors.name}
                     required
                   />
+                  <Form.Control.Feedback type="invalid">{createErrors.name}</Form.Control.Feedback>
                 </Form.Group>
               </Col>
               <Col md={6}>
@@ -399,8 +444,10 @@ const Permissions = () => {
                     value={values.key}
                     onChange={handleChange}
                     placeholder="e.g., USER_CREATE"
+                    isInvalid={!!createErrors.key}
                     required
                   />
+                  <Form.Control.Feedback type="invalid">{createErrors.key}</Form.Control.Feedback>
                   <Form.Text className="text-muted">
                     Use uppercase with underscores (e.g., USER_CREATE)
                   </Form.Text>
@@ -417,8 +464,10 @@ const Permissions = () => {
                     value={values.module}
                     onChange={handleChange}
                     placeholder="e.g., User, Room, Billing"
+                    isInvalid={!!createErrors.module}
                     required
                   />
+                  <Form.Control.Feedback type="invalid">{createErrors.module}</Form.Control.Feedback>
                 </Form.Group>
               </Col>
               <Col md={6}>
@@ -436,7 +485,7 @@ const Permissions = () => {
               </Col>
             </Row>
             <div className="d-flex justify-content-end gap-2">
-              <Button variant="secondary" onClick={() => setShowCreateModal(false)}>
+              <Button variant="secondary" onClick={() => { setShowCreateModal(false); setCreateErrors({}); }}>
                 Cancel
               </Button>
               <Button variant="primary" type="submit" disabled={loading}>
@@ -447,12 +496,19 @@ const Permissions = () => {
         </Modal.Body>
       </Modal>
 
-      {/* Edit Permission Modal */}
-      <Modal show={showEditModal} onHide={() => setShowEditModal(false)} size="lg">
+      {/* Edit Permission Modal with validation */}
+      <Modal show={showEditModal} onHide={() => { setShowEditModal(false); setEditErrors({}); }} size="lg">
         <Modal.Header closeButton>
           <Modal.Title>Edit Permission</Modal.Title>
         </Modal.Header>
         <Modal.Body>
+          {Object.keys(editErrors).length > 0 && (
+            <Alert variant="danger" className="mb-3">
+              <ul className="mb-0">
+                {Object.values(editErrors).map((err, idx) => <li key={idx}>{err}</li>)}
+              </ul>
+            </Alert>
+          )}
           <Form onSubmit={(e) => {
             e.preventDefault();
             handleEditPermission(editForm.values);
@@ -466,8 +522,10 @@ const Permissions = () => {
                     name="name"
                     value={editForm.values.name}
                     onChange={editForm.handleChange}
+                    isInvalid={!!editErrors.name}
                     required
                   />
+                  <Form.Control.Feedback type="invalid">{editErrors.name}</Form.Control.Feedback>
                 </Form.Group>
               </Col>
               <Col md={6}>
@@ -478,8 +536,10 @@ const Permissions = () => {
                     name="key"
                     value={editForm.values.key}
                     onChange={editForm.handleChange}
+                    isInvalid={!!editErrors.key}
                     required
                   />
+                  <Form.Control.Feedback type="invalid">{editErrors.key}</Form.Control.Feedback>
                 </Form.Group>
               </Col>
             </Row>
@@ -492,8 +552,10 @@ const Permissions = () => {
                     name="module"
                     value={editForm.values.module}
                     onChange={editForm.handleChange}
+                    isInvalid={!!editErrors.module}
                     required
                   />
+                  <Form.Control.Feedback type="invalid">{editErrors.module}</Form.Control.Feedback>
                 </Form.Group>
               </Col>
               <Col md={6}>
@@ -510,7 +572,7 @@ const Permissions = () => {
               </Col>
             </Row>
             <div className="d-flex justify-content-end gap-2">
-              <Button variant="secondary" onClick={() => setShowEditModal(false)}>
+              <Button variant="secondary" onClick={() => { setShowEditModal(false); setEditErrors({}); }}>
                 Cancel
               </Button>
               <Button variant="primary" type="submit" disabled={loading}>

@@ -15,6 +15,9 @@ const Beds = () => {
   const [successMessage, setSuccessMessage] = useState('');
   const [filterRoom, setFilterRoom] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
+  
+  // Validation errors
+  const [createErrors, setCreateErrors] = useState({});
 
   const { values, handleChange, resetForm, setValues } = useForm({
     bedNumber: '',
@@ -53,7 +56,27 @@ const Beds = () => {
     }
   };
 
+  // Validation function for create bed
+  const validateBedForm = (formData) => {
+    const errors = {};
+    if (!formData.bedNumber || formData.bedNumber.trim() === '') {
+      errors.bedNumber = 'Bed number is required';
+    }
+    if (!formData.room_Id) {
+      errors.room_Id = 'Please select a room';
+    }
+    return errors;
+  };
+
   const handleCreateBed = async (formData) => {
+    // Validate
+    const errors = validateBedForm(formData);
+    if (Object.keys(errors).length > 0) {
+      setCreateErrors(errors);
+      return;
+    }
+    setCreateErrors({});
+
     try {
       const response = await callApi('post', '/beds', formData);
       if (response.success) {
@@ -380,12 +403,19 @@ const Beds = () => {
         </Row>
       </Container>
 
-      {/* Create Bed Modal */}
-      <Modal show={showCreateModal} onHide={() => setShowCreateModal(false)}>
+      {/* Create Bed Modal with validation errors */}
+      <Modal show={showCreateModal} onHide={() => { setShowCreateModal(false); setCreateErrors({}); }}>
         <Modal.Header closeButton>
           <Modal.Title>Create New Bed</Modal.Title>
         </Modal.Header>
         <Modal.Body>
+          {Object.keys(createErrors).length > 0 && (
+            <Alert variant="danger" className="mb-3">
+              <ul className="mb-0">
+                {Object.values(createErrors).map((err, idx) => <li key={idx}>{err}</li>)}
+              </ul>
+            </Alert>
+          )}
           <Form onSubmit={(e) => {
             e.preventDefault();
             handleCreateBed(values);
@@ -398,8 +428,10 @@ const Beds = () => {
                 value={values.bedNumber}
                 onChange={handleChange}
                 placeholder="e.g., B1, B2, B3"
+                isInvalid={!!createErrors.bedNumber}
                 required
               />
+              <Form.Control.Feedback type="invalid">{createErrors.bedNumber}</Form.Control.Feedback>
             </Form.Group>
             <Form.Group className="mb-3">
               <Form.Label>Room *</Form.Label>
@@ -407,6 +439,7 @@ const Beds = () => {
                 name="room_Id"
                 value={values.room_Id}
                 onChange={handleChange}
+                isInvalid={!!createErrors.room_Id}
                 required
               >
                 <option value="">Select a room</option>
@@ -416,6 +449,7 @@ const Beds = () => {
                   </option>
                 ))}
               </Form.Select>
+              <Form.Control.Feedback type="invalid">{createErrors.room_Id}</Form.Control.Feedback>
             </Form.Group>
             <Form.Group className="mb-3">
               <Form.Label>Initial Status</Form.Label>
@@ -430,7 +464,7 @@ const Beds = () => {
               </Form.Select>
             </Form.Group>
             <div className="d-flex justify-content-end gap-2">
-              <Button variant="secondary" onClick={() => setShowCreateModal(false)}>
+              <Button variant="secondary" onClick={() => { setShowCreateModal(false); setCreateErrors({}); }}>
                 Cancel
               </Button>
               <Button variant="primary" type="submit" disabled={loading}>

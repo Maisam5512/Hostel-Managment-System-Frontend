@@ -21,6 +21,10 @@ const Rooms = () => {
   const [filterStatus, setFilterStatus] = useState('');
   const [filterRoomType, setFilterRoomType] = useState('');
   const [filterFloor, setFilterFloor] = useState('');
+  
+  // Validation errors
+  const [createErrors, setCreateErrors] = useState({});
+  const [editErrors, setEditErrors] = useState({});
 
   const { values, handleChange, resetForm, setValues } = useForm({
     roomNumber: '',
@@ -73,10 +77,45 @@ const Rooms = () => {
     }
   };
 
+  // Validation function for create/edit
+  const validateRoomForm = (formData, isEdit = false) => {
+    const errors = {};
+    if (!formData.roomNumber || formData.roomNumber.trim() === '') {
+      errors.roomNumber = 'Room number is required';
+    }
+    const floor = parseInt(formData.floor);
+    if (isNaN(floor) || floor < 1) {
+      errors.floor = 'Floor must be at least 1';
+    }
+    const totalBeds = parseInt(formData.totalBeds);
+    if (isNaN(totalBeds) || totalBeds < 1) {
+      errors.totalBeds = 'Total beds must be at least 1';
+    }
+    if (!formData.roomType) {
+      errors.roomType = 'Room type is required';
+    }
+    const rent = parseFloat(formData.rentPerBed);
+    if (isNaN(rent) || rent < 0) {
+      errors.rentPerBed = 'Rent per bed must be a non-negative number';
+    }
+    return errors;
+  };
+
   const handleCreateRoom = async (formData) => {
+    // Validate
+    const errors = validateRoomForm(formData);
+    if (Object.keys(errors).length > 0) {
+      setCreateErrors(errors);
+      return;
+    }
+    setCreateErrors({});
+
     try {
       const response = await roomService.createRoom({
         ...formData,
+        floor: parseInt(formData.floor),
+        totalBeds: parseInt(formData.totalBeds),
+        rentPerBed: parseFloat(formData.rentPerBed),
         createdBy: JSON.parse(localStorage.getItem('user'))?.id
       });
       
@@ -89,12 +128,26 @@ const Rooms = () => {
       }
     } catch (err) {
       console.error('Error creating room:', err);
+      // Optionally show API error
     }
   };
 
   const handleEditRoom = async (formData) => {
+    // Validate
+    const errors = validateRoomForm(formData, true);
+    if (Object.keys(errors).length > 0) {
+      setEditErrors(errors);
+      return;
+    }
+    setEditErrors({});
+
     try {
-      const response = await roomService.updateRoom(selectedRoom._id, formData);
+      const response = await roomService.updateRoom(selectedRoom._id, {
+        ...formData,
+        floor: parseInt(formData.floor),
+        totalBeds: parseInt(formData.totalBeds),
+        rentPerBed: parseFloat(formData.rentPerBed)
+      });
       if (response.success) {
         setSuccessMessage('Room updated successfully!');
         setShowEditModal(false);
@@ -154,6 +207,7 @@ const Rooms = () => {
       hasAC: room.hasAC,
       hasWashroom: room.hasWashroom
     });
+    setEditErrors({}); // Clear previous errors
     setShowEditModal(true);
   };
 
@@ -504,12 +558,19 @@ const Rooms = () => {
         </Row>
       </Container>
 
-      {/* Create Room Modal */}
-      <Modal show={showCreateModal} onHide={() => setShowCreateModal(false)} size="lg">
+      {/* Create Room Modal with validation errors */}
+      <Modal show={showCreateModal} onHide={() => { setShowCreateModal(false); setCreateErrors({}); }} size="lg">
         <Modal.Header closeButton>
           <Modal.Title>Create New Room</Modal.Title>
         </Modal.Header>
         <Modal.Body>
+          {Object.keys(createErrors).length > 0 && (
+            <Alert variant="danger" className="mb-3">
+              <ul className="mb-0">
+                {Object.values(createErrors).map((err, idx) => <li key={idx}>{err}</li>)}
+              </ul>
+            </Alert>
+          )}
           <Form onSubmit={(e) => {
             e.preventDefault();
             handleCreateRoom(values);
@@ -524,8 +585,10 @@ const Rooms = () => {
                     value={values.roomNumber}
                     onChange={handleChange}
                     placeholder="e.g., A-101, B-202"
+                    isInvalid={!!createErrors.roomNumber}
                     required
                   />
+                  <Form.Control.Feedback type="invalid">{createErrors.roomNumber}</Form.Control.Feedback>
                 </Form.Group>
               </Col>
               <Col md={6}>
@@ -538,8 +601,10 @@ const Rooms = () => {
                     onChange={handleChange}
                     min="1"
                     max="10"
+                    isInvalid={!!createErrors.floor}
                     required
                   />
+                  <Form.Control.Feedback type="invalid">{createErrors.floor}</Form.Control.Feedback>
                 </Form.Group>
               </Col>
             </Row>
@@ -551,6 +616,7 @@ const Rooms = () => {
                     name="roomType"
                     value={values.roomType}
                     onChange={handleChange}
+                    isInvalid={!!createErrors.roomType}
                     required
                   >
                     {roomTypeOptions.map(option => (
@@ -559,6 +625,7 @@ const Rooms = () => {
                       </option>
                     ))}
                   </Form.Select>
+                  <Form.Control.Feedback type="invalid">{createErrors.roomType}</Form.Control.Feedback>
                 </Form.Group>
               </Col>
               <Col md={6}>
@@ -571,8 +638,10 @@ const Rooms = () => {
                     onChange={handleChange}
                     min="1"
                     max="10"
+                    isInvalid={!!createErrors.totalBeds}
                     required
                   />
+                  <Form.Control.Feedback type="invalid">{createErrors.totalBeds}</Form.Control.Feedback>
                 </Form.Group>
               </Col>
             </Row>
@@ -587,8 +656,10 @@ const Rooms = () => {
                     onChange={handleChange}
                     min="0"
                     step="100"
+                    isInvalid={!!createErrors.rentPerBed}
                     required
                   />
+                  <Form.Control.Feedback type="invalid">{createErrors.rentPerBed}</Form.Control.Feedback>
                 </Form.Group>
               </Col>
               <Col md={6}>
@@ -643,7 +714,7 @@ const Rooms = () => {
               </Col>
             </Row>
             <div className="d-flex justify-content-end gap-2">
-              <Button variant="secondary" onClick={() => setShowCreateModal(false)}>
+              <Button variant="secondary" onClick={() => { setShowCreateModal(false); setCreateErrors({}); }}>
                 Cancel
               </Button>
               <Button variant="primary" type="submit" disabled={loading}>
@@ -654,12 +725,19 @@ const Rooms = () => {
         </Modal.Body>
       </Modal>
 
-      {/* Edit Room Modal */}
-      <Modal show={showEditModal} onHide={() => setShowEditModal(false)} size="lg">
+      {/* Edit Room Modal with validation errors */}
+      <Modal show={showEditModal} onHide={() => { setShowEditModal(false); setEditErrors({}); }} size="lg">
         <Modal.Header closeButton>
           <Modal.Title>Edit Room: {selectedRoom?.roomNumber}</Modal.Title>
         </Modal.Header>
         <Modal.Body>
+          {Object.keys(editErrors).length > 0 && (
+            <Alert variant="danger" className="mb-3">
+              <ul className="mb-0">
+                {Object.values(editErrors).map((err, idx) => <li key={idx}>{err}</li>)}
+              </ul>
+            </Alert>
+          )}
           <Form onSubmit={(e) => {
             e.preventDefault();
             handleEditRoom(editForm.values);
@@ -673,8 +751,10 @@ const Rooms = () => {
                     name="roomNumber"
                     value={editForm.values.roomNumber}
                     onChange={editForm.handleChange}
+                    isInvalid={!!editErrors.roomNumber}
                     required
                   />
+                  <Form.Control.Feedback type="invalid">{editErrors.roomNumber}</Form.Control.Feedback>
                 </Form.Group>
               </Col>
               <Col md={6}>
@@ -687,8 +767,10 @@ const Rooms = () => {
                     onChange={editForm.handleChange}
                     min="1"
                     max="10"
+                    isInvalid={!!editErrors.floor}
                     required
                   />
+                  <Form.Control.Feedback type="invalid">{editErrors.floor}</Form.Control.Feedback>
                 </Form.Group>
               </Col>
             </Row>
@@ -700,6 +782,7 @@ const Rooms = () => {
                     name="roomType"
                     value={editForm.values.roomType}
                     onChange={editForm.handleChange}
+                    isInvalid={!!editErrors.roomType}
                     required
                   >
                     {roomTypeOptions.map(option => (
@@ -708,6 +791,7 @@ const Rooms = () => {
                       </option>
                     ))}
                   </Form.Select>
+                  <Form.Control.Feedback type="invalid">{editErrors.roomType}</Form.Control.Feedback>
                 </Form.Group>
               </Col>
               <Col md={6}>
@@ -720,8 +804,10 @@ const Rooms = () => {
                     onChange={editForm.handleChange}
                     min="1"
                     max="10"
+                    isInvalid={!!editErrors.totalBeds}
                     required
                   />
+                  <Form.Control.Feedback type="invalid">{editErrors.totalBeds}</Form.Control.Feedback>
                 </Form.Group>
               </Col>
             </Row>
@@ -736,8 +822,10 @@ const Rooms = () => {
                     onChange={editForm.handleChange}
                     min="0"
                     step="100"
+                    isInvalid={!!editErrors.rentPerBed}
                     required
                   />
+                  <Form.Control.Feedback type="invalid">{editErrors.rentPerBed}</Form.Control.Feedback>
                 </Form.Group>
               </Col>
               <Col md={6}>
@@ -772,7 +860,7 @@ const Rooms = () => {
               />
             </Form.Group>
             <div className="d-flex justify-content-end gap-2">
-              <Button variant="secondary" onClick={() => setShowEditModal(false)}>
+              <Button variant="secondary" onClick={() => { setShowEditModal(false); setEditErrors({}); }}>
                 Cancel
               </Button>
               <Button variant="primary" type="submit" disabled={loading}>
