@@ -3,14 +3,17 @@ import {
   Container, Row, Col, Card, Table, Button, Form, Modal, Alert,
   Badge, Dropdown, InputGroup, Tab, Nav, ProgressBar, Tooltip, OverlayTrigger
 } from 'react-bootstrap';
-import { FaEye, FaEdit, FaTrash, FaRupeeSign, FaFileInvoice, FaCalendarAlt, FaUser, FaReceipt } from 'react-icons/fa';
+import {
+  FaEye, FaEdit, FaTrash, FaRupeeSign, FaFileInvoice, FaCalendarAlt,
+  FaUser, FaReceipt, FaExclamationTriangle, FaCheckCircle, FaTimes,
+  FaPlus, FaInfoCircle, FaMoneyBillWave, FaRegClock, FaBan
+} from 'react-icons/fa';
 import { MdPayment, MdRefresh } from 'react-icons/md';
 import Layout from '../components/layout/Layout';
 import { billService } from '../services/billService';
 import { memberService } from '../services/memberService';
 import { useAuth } from '../context/AuthContext';
 import '../styles/Bills.css';
-
 
 const Bills = () => {
   const { user } = useAuth();
@@ -30,6 +33,10 @@ const Bills = () => {
     collectedAmount: 0,
     pendingAmount: 0
   });
+  
+  // Error modal state
+  const [showErrorModal, setShowErrorModal] = useState(false);
+  const [errorModalMessage, setErrorModalMessage] = useState('');
   
   // Modals state
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -142,6 +149,14 @@ const Bills = () => {
       setFilters(prev => ({ ...prev, status: 'PAID' }));
     }
   }, [activeTab]);
+  
+  // Show API error in modal
+  useEffect(() => {
+    if (error) {
+      setErrorModalMessage(error);
+      setShowErrorModal(true);
+    }
+  }, [error]);
   
   /* ================= HELPER FUNCTIONS ================= */
   
@@ -721,28 +736,13 @@ const Bills = () => {
           </Col>
         </Row>
 
-        {/* Alerts */}
-        {error && (
-          <Alert variant="danger" onClose={() => setError('')} dismissible className="shadow-sm">
-            <div className="d-flex align-items-center">
-              <div className="alert-icon me-3">
-                <div className="bg-danger rounded-circle p-2">
-                  <span className="text-white">!</span>
-                </div>
-              </div>
-              <div>
-                <strong>Error:</strong> {error}
-              </div>
-            </div>
-          </Alert>
-        )}
-
+        {/* Success Alert (kept as dismissible) */}
         {success && (
           <Alert variant="success" onClose={() => setSuccess('')} dismissible className="shadow-sm">
             <div className="d-flex align-items-center">
               <div className="alert-icon me-3">
                 <div className="bg-success rounded-circle p-2">
-                  <span className="text-white">✓</span>
+                  <FaCheckCircle className="text-white" />
                 </div>
               </div>
               <div>
@@ -752,7 +752,23 @@ const Bills = () => {
           </Alert>
         )}
 
-        
+        {/* Error Modal (instead of top error alert) */}
+        <Modal show={showErrorModal} onHide={() => setShowErrorModal(false)} centered>
+          <Modal.Header closeButton>
+            <Modal.Title className="text-danger">
+              <FaExclamationTriangle className="me-2" /> Error
+            </Modal.Title>
+          </Modal.Header>
+          <Modal.Body>
+            <p>{errorModalMessage}</p>
+          </Modal.Body>
+          <Modal.Footer>
+            <Button variant="danger" onClick={() => setShowErrorModal(false)}>
+              OK
+            </Button>
+          </Modal.Footer>
+        </Modal>
+
         {renderStatusCards()}
 
         {/* Filters */}
@@ -841,6 +857,7 @@ const Bills = () => {
                             </td>
                             <td>
                               <Badge bg="light" text="dark" className="px-3 py-2">
+                                <FaCalendarAlt className="me-1" size={10} />
                                 {bill.billMonth}
                               </Badge>
                             </td>
@@ -870,7 +887,10 @@ const Bills = () => {
                               </small>
                             </td>
                             <td>
-                              <small>{formatDate(bill.createdAt)}</small>
+                              <small>
+                                <FaRegClock className="me-1" size={10} />
+                                {formatDate(bill.createdAt)}
+                              </small>
                             </td>
                             <td className="text-center pe-4">
                               <div className="d-flex gap-2 justify-content-center">
@@ -1015,7 +1035,7 @@ const Bills = () => {
                       type="button"
                       onClick={addExtraItemRow}
                     >
-                      + Add Item
+                      <FaPlus className="me-1" /> Add Item
                     </Button>
                   </div>
                 </Card.Header>
@@ -1057,7 +1077,7 @@ const Bills = () => {
                             onClick={() => removeExtraItemRow(index)}
                             className="w-100"
                           >
-                            ×
+                            <FaTimes />
                           </Button>
                         )}
                       </Col>
@@ -1083,7 +1103,7 @@ const Bills = () => {
                 <div className="d-flex">
                   <div className="me-3">
                     <div className="bg-info bg-opacity-10 p-2 rounded-circle">
-                      <FaFileInvoice className="text-info" />
+                      <FaInfoCircle className="text-info" />
                     </div>
                   </div>
                   <div>
@@ -1281,7 +1301,7 @@ const Bills = () => {
                   <div className="d-flex">
                     <div className="me-3">
                       <div className="bg-info bg-opacity-10 p-2 rounded-circle">
-                        <FaFileInvoice className="text-info" />
+                        <FaInfoCircle className="text-info" />
                       </div>
                     </div>
                     <div>
@@ -1454,7 +1474,7 @@ const Bills = () => {
                 <Alert variant="danger" className="border-0 bg-danger bg-opacity-10">
                   <div className="d-flex">
                     <div className="me-3">
-                      <FaTrash className="text-danger" />
+                      <FaExclamationTriangle className="text-danger" />
                     </div>
                     <div>
                       <strong>Warning:</strong> Deleting this bill will remove it permanently!
@@ -1485,7 +1505,7 @@ const Bills = () => {
                     {selectedBill.paidAmount > 0 && (
                       <Alert variant="warning" className="mt-3 mb-0 py-2">
                         <div className="d-flex align-items-center">
-                          <span className="me-2">⚠️</span>
+                          <FaExclamationTriangle className="me-2 text-warning" />
                           <small>
                             <strong>Note:</strong> This bill has payments recorded. Bills with payments cannot be deleted.
                           </small>
@@ -1495,10 +1515,11 @@ const Bills = () => {
                   </Card.Body>
                 </Card>
 
+                {/* Error inside delete modal if any */}
                 {error && (
                   <Alert variant="danger" className="mt-3">
                     <div className="d-flex align-items-center">
-                      <span className="me-2">❌</span>
+                      <FaExclamationTriangle className="me-2" />
                       <div>
                         <strong>Error:</strong> {error}
                       </div>

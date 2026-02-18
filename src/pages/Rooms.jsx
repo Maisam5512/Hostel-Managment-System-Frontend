@@ -7,6 +7,14 @@ import { useForm } from '../hooks/useForm';
 import { roomService } from '../services/roomService';
 import { bedService } from '../services/bedService';
 
+// Icons
+import {
+  FaHome, FaCheckCircle, FaBed, FaChartLine, FaPlus, FaFilter,
+  FaTimes, FaEdit, FaToggleOn, FaInfoCircle, FaTrash, FaUsers,
+  FaWifi, FaSnowflake, FaWater, FaDoorOpen, FaBan, FaWrench,
+  FaList, FaUser, FaCalendarAlt, FaCheck, FaExclamationTriangle
+} from 'react-icons/fa';
+
 const Rooms = () => {
   const { callApi, loading, error, data } = useApi();
   const [rooms, setRooms] = useState([]);
@@ -21,15 +29,21 @@ const Rooms = () => {
   const [filterStatus, setFilterStatus] = useState('');
   const [filterRoomType, setFilterRoomType] = useState('');
   const [filterFloor, setFilterFloor] = useState('');
-  
+
+  // Error modal state
+  const [showErrorModal, setShowErrorModal] = useState(false);
+  const [errorModalMessage, setErrorModalMessage] = useState('');
+
   // Validation errors
   const [createErrors, setCreateErrors] = useState({});
   const [editErrors, setEditErrors] = useState({});
 
+  // Store bed occupancy for each room
+  const [roomOccupancy, setRoomOccupancy] = useState({});
+
   const { values, handleChange, resetForm, setValues } = useForm({
     roomNumber: '',
     floor: 1,
-    totalBeds: 1,
     roomType: 'SINGLE',
     rentPerBed: 0,
     status: 'AVAILABLE',
@@ -40,7 +54,6 @@ const Rooms = () => {
   const editForm = useForm({
     roomNumber: '',
     floor: 1,
-    totalBeds: 1,
     roomType: 'SINGLE',
     rentPerBed: 0,
     hasAC: false,
@@ -55,15 +68,50 @@ const Rooms = () => {
     fetchRooms();
   }, []);
 
+  // Show API error in modal
+  useEffect(() => {
+    if (error) {
+      setErrorModalMessage(error);
+      setShowErrorModal(true);
+    }
+  }, [error]);
+
   const fetchRooms = async () => {
     try {
       const response = await roomService.getAllRooms();
       if (response.success) {
         setRooms(response.data);
+        await fetchAllRoomsBeds(response.data);
       }
     } catch (err) {
       console.error('Error fetching rooms:', err);
+      // Error will be caught by useApi and trigger the useEffect above
     }
+  };
+
+  const fetchAllRoomsBeds = async (roomsList) => {
+    const occupancy = {};
+    for (const room of roomsList) {
+      try {
+        const bedsRes = await bedService.getBedsByRoom(room._id);
+        if (bedsRes.success) {
+          const beds = bedsRes.data;
+          const totalBeds = beds.length;
+          const occupiedBeds = beds.filter(b => b.status === 'OCCUPIED').length;
+          occupancy[room._id] = {
+            totalBeds,
+            occupiedBeds,
+            rate: totalBeds > 0 ? Math.round((occupiedBeds / totalBeds) * 100) : 0
+          };
+        } else {
+          occupancy[room._id] = { totalBeds: 0, occupiedBeds: 0, rate: 0 };
+        }
+      } catch (err) {
+        console.error(`Error fetching beds for room ${room._id}:`, err);
+        occupancy[room._id] = { totalBeds: 0, occupiedBeds: 0, rate: 0 };
+      }
+    }
+    setRoomOccupancy(occupancy);
   };
 
   const fetchRoomBeds = async (roomId) => {
@@ -87,10 +135,6 @@ const Rooms = () => {
     if (isNaN(floor) || floor < 1) {
       errors.floor = 'Floor must be at least 1';
     }
-    const totalBeds = parseInt(formData.totalBeds);
-    if (isNaN(totalBeds) || totalBeds < 1) {
-      errors.totalBeds = 'Total beds must be at least 1';
-    }
     if (!formData.roomType) {
       errors.roomType = 'Room type is required';
     }
@@ -101,8 +145,17 @@ const Rooms = () => {
     return errors;
   };
 
+  // Determine bed count based on room type
+  const getBedCountFromType = (roomType) => {
+    switch (roomType) {
+      case 'SINGLE': return 1;
+      case 'DOUBLE': return 2;
+      case 'TRIPLE': return 3;
+      default: return 1;
+    }
+  };
+
   const handleCreateRoom = async (formData) => {
-    // Validate
     const errors = validateRoomForm(formData);
     if (Object.keys(errors).length > 0) {
       setCreateErrors(errors);
@@ -111,14 +164,15 @@ const Rooms = () => {
     setCreateErrors({});
 
     try {
+      const bedCount = getBedCountFromType(formData.roomType);
       const response = await roomService.createRoom({
         ...formData,
         floor: parseInt(formData.floor),
-        totalBeds: parseInt(formData.totalBeds),
+        totalBeds: bedCount,
         rentPerBed: parseFloat(formData.rentPerBed),
         createdBy: JSON.parse(localStorage.getItem('user'))?.id
       });
-      
+
       if (response.success) {
         setSuccessMessage('Room created successfully!');
         setShowCreateModal(false);
@@ -128,12 +182,11 @@ const Rooms = () => {
       }
     } catch (err) {
       console.error('Error creating room:', err);
-      // Optionally show API error
+      // Error will be shown in modal via useEffect
     }
   };
 
   const handleEditRoom = async (formData) => {
-    // Validate
     const errors = validateRoomForm(formData, true);
     if (Object.keys(errors).length > 0) {
       setEditErrors(errors);
@@ -142,10 +195,11 @@ const Rooms = () => {
     setEditErrors({});
 
     try {
+      const bedCount = getBedCountFromType(formData.roomType);
       const response = await roomService.updateRoom(selectedRoom._id, {
         ...formData,
         floor: parseInt(formData.floor),
-        totalBeds: parseInt(formData.totalBeds),
+        totalBeds: bedCount,
         rentPerBed: parseFloat(formData.rentPerBed)
       });
       if (response.success) {
@@ -201,13 +255,12 @@ const Rooms = () => {
     editForm.setValues({
       roomNumber: room.roomNumber,
       floor: room.floor,
-      totalBeds: room.totalBeds,
       roomType: room.roomType,
       rentPerBed: room.rentPerBed,
       hasAC: room.hasAC,
       hasWashroom: room.hasWashroom
     });
-    setEditErrors({}); // Clear previous errors
+    setEditErrors({});
     setShowEditModal(true);
   };
 
@@ -223,15 +276,15 @@ const Rooms = () => {
   };
 
   const roomTypeOptions = [
-    { value: 'SINGLE', label: 'Single', icon: '👤' },
-    { value: 'DOUBLE', label: 'Double', icon: '👥' },
-    { value: 'TRIPLE', label: 'Triple', icon: '👨‍👩‍👧' }
+    { value: 'SINGLE', label: 'Single', icon: <FaUser /> },
+    { value: 'DOUBLE', label: 'Double', icon: <FaUsers /> },
+    { value: 'TRIPLE', label: 'Triple', icon: <FaUsers style={{ transform: 'scaleX(-1)' }} /> }
   ];
 
   const statusOptions = [
-    { value: 'AVAILABLE', label: 'Available', color: 'success', icon: '✅' },
-    { value: 'FULL', label: 'Full', color: 'warning', icon: '🈵' },
-    { value: 'MAINTENANCE', label: 'Maintenance', color: 'danger', icon: '🔧' }
+    { value: 'AVAILABLE', label: 'Available', color: 'success', icon: <FaCheckCircle /> },
+    { value: 'FULL', label: 'Full', color: 'warning', icon: <FaBan /> },
+    { value: 'MAINTENANCE', label: 'Maintenance', color: 'danger', icon: <FaWrench /> }
   ];
 
   const floors = [...new Set(rooms.map(room => room.floor))].sort((a, b) => a - b);
@@ -244,12 +297,17 @@ const Rooms = () => {
     return true;
   });
 
-  const calculateOccupancy = (room) => {
-    // This would need actual bed data - for now using mock
-    const totalBeds = room.totalBeds || 1;
-    const occupiedBeds = Math.floor(totalBeds * 0.7); // Mock data
-    return Math.round((occupiedBeds / totalBeds) * 100);
-  };
+  const overallOccupancy = rooms.length > 0
+    ? Math.round(rooms.reduce((sum, room) => {
+        const occ = roomOccupancy[room._id];
+        return sum + (occ?.rate || 0);
+      }, 0) / rooms.length)
+    : 0;
+
+  const totalBedsOverall = rooms.reduce((sum, room) => {
+    const occ = roomOccupancy[room._id];
+    return sum + (occ?.totalBeds || 0);
+  }, 0);
 
   if (loading && rooms.length === 0) {
     return (
@@ -275,13 +333,13 @@ const Rooms = () => {
                 onClick={() => setShowCreateModal(true)}
                 className="d-flex align-items-center"
               >
-                <span className="me-2">+</span> Add New Room
+                <FaPlus className="me-2" /> Add New Room
               </Button>
             </div>
           </Col>
         </Row>
 
-        {/* Success Message */}
+        {/* Success Message (top alert) */}
         {successMessage && (
           <Row className="mb-3">
             <Col>
@@ -292,16 +350,22 @@ const Rooms = () => {
           </Row>
         )}
 
-        {/* Error Message */}
-        {error && (
-          <Row className="mb-3">
-            <Col>
-              <Alert variant="danger">
-                Error: {error}
-              </Alert>
-            </Col>
-          </Row>
-        )}
+        {/* Error Modal (instead of top error alert) */}
+        <Modal show={showErrorModal} onHide={() => setShowErrorModal(false)} centered>
+          <Modal.Header closeButton>
+            <Modal.Title className="text-danger">
+              <FaExclamationTriangle className="me-2" /> Error
+            </Modal.Title>
+          </Modal.Header>
+          <Modal.Body>
+            <p>{errorModalMessage}</p>
+          </Modal.Body>
+          <Modal.Footer>
+            <Button variant="danger" onClick={() => setShowErrorModal(false)}>
+              OK
+            </Button>
+          </Modal.Footer>
+        </Modal>
 
         {/* Stats Cards */}
         <Row className="mb-4">
@@ -314,7 +378,7 @@ const Rooms = () => {
                     <h3 className="mb-0">{rooms.length}</h3>
                   </div>
                   <div className="bg-primary-light p-2 rounded-circle">
-                    <span style={{ fontSize: '20px' }}>🏠</span>
+                    <FaHome size={20} className="text-primary" />
                   </div>
                 </div>
               </Card.Body>
@@ -329,7 +393,7 @@ const Rooms = () => {
                     <h3 className="mb-0">{rooms.filter(r => r.status === 'AVAILABLE').length}</h3>
                   </div>
                   <div className="bg-success-light p-2 rounded-circle">
-                    <span style={{ fontSize: '20px' }}>✅</span>
+                    <FaCheckCircle size={20} className="text-success" />
                   </div>
                 </div>
               </Card.Body>
@@ -341,10 +405,10 @@ const Rooms = () => {
                 <div className="d-flex justify-content-between align-items-center">
                   <div>
                     <h6 className="text-muted mb-1">Total Beds</h6>
-                    <h3 className="mb-0">{rooms.reduce((sum, room) => sum + (room.totalBeds || 0), 0)}</h3>
+                    <h3 className="mb-0">{totalBedsOverall}</h3>
                   </div>
                   <div className="bg-warning-light p-2 rounded-circle">
-                    <span style={{ fontSize: '20px' }}>🛏️</span>
+                    <FaBed size={20} className="text-warning" />
                   </div>
                 </div>
               </Card.Body>
@@ -356,14 +420,10 @@ const Rooms = () => {
                 <div className="d-flex justify-content-between align-items-center">
                   <div>
                     <h6 className="text-muted mb-1">Occupancy Rate</h6>
-                    <h3 className="mb-0">
-                      {rooms.length > 0 
-                        ? Math.round(rooms.reduce((sum, room) => sum + calculateOccupancy(room), 0) / rooms.length)
-                        : 0}%
-                    </h3>
+                    <h3 className="mb-0">{overallOccupancy}%</h3>
                   </div>
                   <div className="bg-info-light p-2 rounded-circle">
-                    <span style={{ fontSize: '20px' }}>📊</span>
+                    <FaChartLine size={20} className="text-info" />
                   </div>
                 </div>
               </Card.Body>
@@ -375,7 +435,7 @@ const Rooms = () => {
         <Row className="mb-3">
           <Col md={3}>
             <Form.Group>
-              <Form.Label>Status</Form.Label>
+              <Form.Label><FaFilter className="me-1" /> Status</Form.Label>
               <Form.Select
                 value={filterStatus}
                 onChange={(e) => setFilterStatus(e.target.value)}
@@ -389,7 +449,7 @@ const Rooms = () => {
           </Col>
           <Col md={3}>
             <Form.Group>
-              <Form.Label>Room Type</Form.Label>
+              <Form.Label><FaUsers className="me-1" /> Room Type</Form.Label>
               <Form.Select
                 value={filterRoomType}
                 onChange={(e) => setFilterRoomType(e.target.value)}
@@ -403,7 +463,7 @@ const Rooms = () => {
           </Col>
           <Col md={3}>
             <Form.Group>
-              <Form.Label>Floor</Form.Label>
+              <Form.Label><FaDoorOpen className="me-1" /> Floor</Form.Label>
               <Form.Select
                 value={filterFloor}
                 onChange={(e) => setFilterFloor(e.target.value)}
@@ -425,7 +485,7 @@ const Rooms = () => {
               }}
               className="me-2"
             >
-              Clear Filters
+              <FaTimes className="me-1" /> Clear Filters
             </Button>
           </Col>
         </Row>
@@ -460,13 +520,14 @@ const Rooms = () => {
                         filteredRooms.map((room) => {
                           const statusOption = statusOptions.find(s => s.value === room.status);
                           const roomTypeOption = roomTypeOptions.find(t => t.value === room.roomType);
+                          const occupancy = roomOccupancy[room._id] || { totalBeds: 0, occupiedBeds: 0, rate: 0 };
                           
                           return (
                             <tr key={room._id}>
                               <td>
                                 <div className="d-flex align-items-center">
                                   <div className="me-2">
-                                    <span style={{ fontSize: '16px' }}>{roomTypeOption?.icon || '🏠'}</span>
+                                    {roomTypeOption?.icon || <FaHome />}
                                   </div>
                                   <div>
                                     <div className="fw-bold">{room.roomNumber}</div>
@@ -476,7 +537,7 @@ const Rooms = () => {
                               </td>
                               <td>
                                 <Badge bg="secondary" className="px-2 py-1">
-                                  Floor {room.floor}
+                                  <FaDoorOpen className="me-1" /> Floor {room.floor}
                                 </Badge>
                               </td>
                               <td>
@@ -486,8 +547,10 @@ const Rooms = () => {
                               </td>
                               <td>
                                 <div>
-                                  <div className="fw-bold">{room.totalBeds}</div>
-                                  <div className="small text-muted">beds total</div>
+                                  <div className="fw-bold">{occupancy.totalBeds}</div>
+                                  <div className="small text-muted">
+                                    {occupancy.occupiedBeds} occupied ({occupancy.rate}%)
+                                  </div>
                                 </div>
                               </td>
                               <td>
@@ -497,10 +560,14 @@ const Rooms = () => {
                               <td>
                                 <div className="d-flex gap-1">
                                   {room.hasAC && (
-                                    <Badge bg="primary" className="px-1 py-0 small">AC</Badge>
+                                    <Badge bg="primary" className="px-1 py-0 small">
+                                      <FaSnowflake className="me-1" size={10} /> AC
+                                    </Badge>
                                   )}
                                   {room.hasWashroom && (
-                                    <Badge bg="success" className="px-1 py-0 small">WC</Badge>
+                                    <Badge bg="success" className="px-1 py-0 small">
+                                      <FaWater className="me-1" size={10} /> WC
+                                    </Badge>
                                   )}
                                 </div>
                               </td>
@@ -518,30 +585,34 @@ const Rooms = () => {
                                     variant="outline-primary"
                                     size="sm"
                                     onClick={() => openEditModal(room)}
+                                    title="Edit"
                                   >
-                                    Edit
+                                    <FaEdit />
                                   </Button>
                                   <Button
                                     variant="outline-warning"
                                     size="sm"
                                     onClick={() => openStatusModal(room)}
+                                    title="Change Status"
                                   >
-                                    Status
+                                    <FaToggleOn />
                                   </Button>
                                   <Button
                                     variant="outline-info"
                                     size="sm"
                                     onClick={() => handleViewBeds(room)}
+                                    title="View Beds"
                                   >
-                                    Beds
+                                    <FaList />
                                   </Button>
                                   <Button
                                     variant="outline-danger"
                                     size="sm"
                                     onClick={() => openDeleteModal(room)}
                                     disabled={room.status === 'OCCUPIED'}
+                                    title="Delete"
                                   >
-                                    Delete
+                                    <FaTrash />
                                   </Button>
                                 </div>
                               </td>
@@ -558,7 +629,7 @@ const Rooms = () => {
         </Row>
       </Container>
 
-      {/* Create Room Modal with validation errors */}
+      {/* Create Room Modal */}
       <Modal show={showCreateModal} onHide={() => { setShowCreateModal(false); setCreateErrors({}); }} size="lg">
         <Modal.Header closeButton>
           <Modal.Title>Create New Room</Modal.Title>
@@ -621,31 +692,18 @@ const Rooms = () => {
                   >
                     {roomTypeOptions.map(option => (
                       <option key={option.value} value={option.value}>
-                        {option.icon} {option.label}
+                        {option.label}
                       </option>
                     ))}
                   </Form.Select>
+                  <Form.Text className="text-muted">
+                    {values.roomType === 'SINGLE' && '1 bed will be created'}
+                    {values.roomType === 'DOUBLE' && '2 beds will be created'}
+                    {values.roomType === 'TRIPLE' && '3 beds will be created'}
+                  </Form.Text>
                   <Form.Control.Feedback type="invalid">{createErrors.roomType}</Form.Control.Feedback>
                 </Form.Group>
               </Col>
-              <Col md={6}>
-                <Form.Group className="mb-3">
-                  <Form.Label>Total Beds *</Form.Label>
-                  <Form.Control
-                    type="number"
-                    name="totalBeds"
-                    value={values.totalBeds}
-                    onChange={handleChange}
-                    min="1"
-                    max="10"
-                    isInvalid={!!createErrors.totalBeds}
-                    required
-                  />
-                  <Form.Control.Feedback type="invalid">{createErrors.totalBeds}</Form.Control.Feedback>
-                </Form.Group>
-              </Col>
-            </Row>
-            <Row>
               <Col md={6}>
                 <Form.Group className="mb-3">
                   <Form.Label>Rent per Bed (₹) *</Form.Label>
@@ -662,6 +720,8 @@ const Rooms = () => {
                   <Form.Control.Feedback type="invalid">{createErrors.rentPerBed}</Form.Control.Feedback>
                 </Form.Group>
               </Col>
+            </Row>
+            <Row>
               <Col md={6}>
                 <Form.Group className="mb-3">
                   <Form.Label>Initial Status</Form.Label>
@@ -672,20 +732,18 @@ const Rooms = () => {
                   >
                     {statusOptions.map(option => (
                       <option key={option.value} value={option.value}>
-                        {option.icon} {option.label}
+                        {option.label}
                       </option>
                     ))}
                   </Form.Select>
                 </Form.Group>
               </Col>
-            </Row>
-            <Row>
               <Col md={6}>
                 <Form.Group className="mb-3">
                   <Form.Check
                     type="checkbox"
                     name="hasAC"
-                    label="Has Air Conditioning"
+                    label={<><FaSnowflake className="me-1" /> Has Air Conditioning</>}
                     checked={values.hasAC}
                     onChange={(e) => handleChange({
                       target: {
@@ -696,12 +754,14 @@ const Rooms = () => {
                   />
                 </Form.Group>
               </Col>
+            </Row>
+            <Row>
               <Col md={6}>
                 <Form.Group className="mb-3">
                   <Form.Check
                     type="checkbox"
                     name="hasWashroom"
-                    label="Has Attached Washroom"
+                    label={<><FaWater className="me-1" /> Has Attached Washroom</>}
                     checked={values.hasWashroom}
                     onChange={(e) => handleChange({
                       target: {
@@ -725,7 +785,7 @@ const Rooms = () => {
         </Modal.Body>
       </Modal>
 
-      {/* Edit Room Modal with validation errors */}
+      {/* Edit Room Modal */}
       <Modal show={showEditModal} onHide={() => { setShowEditModal(false); setEditErrors({}); }} size="lg">
         <Modal.Header closeButton>
           <Modal.Title>Edit Room: {selectedRoom?.roomNumber}</Modal.Title>
@@ -787,31 +847,16 @@ const Rooms = () => {
                   >
                     {roomTypeOptions.map(option => (
                       <option key={option.value} value={option.value}>
-                        {option.icon} {option.label}
+                        {option.label}
                       </option>
                     ))}
                   </Form.Select>
+                  <Form.Text className="text-muted">
+                    Changing type may affect existing beds (handled by server).
+                  </Form.Text>
                   <Form.Control.Feedback type="invalid">{editErrors.roomType}</Form.Control.Feedback>
                 </Form.Group>
               </Col>
-              <Col md={6}>
-                <Form.Group className="mb-3">
-                  <Form.Label>Total Beds *</Form.Label>
-                  <Form.Control
-                    type="number"
-                    name="totalBeds"
-                    value={editForm.values.totalBeds}
-                    onChange={editForm.handleChange}
-                    min="1"
-                    max="10"
-                    isInvalid={!!editErrors.totalBeds}
-                    required
-                  />
-                  <Form.Control.Feedback type="invalid">{editErrors.totalBeds}</Form.Control.Feedback>
-                </Form.Group>
-              </Col>
-            </Row>
-            <Row>
               <Col md={6}>
                 <Form.Group className="mb-3">
                   <Form.Label>Rent per Bed (₹) *</Form.Label>
@@ -828,12 +873,14 @@ const Rooms = () => {
                   <Form.Control.Feedback type="invalid">{editErrors.rentPerBed}</Form.Control.Feedback>
                 </Form.Group>
               </Col>
+            </Row>
+            <Row>
               <Col md={6}>
                 <Form.Group className="mb-3">
                   <Form.Check
                     type="checkbox"
                     name="hasAC"
-                    label="Has Air Conditioning"
+                    label={<><FaSnowflake className="me-1" /> Has Air Conditioning</>}
                     checked={editForm.values.hasAC}
                     onChange={(e) => editForm.handleChange({
                       target: {
@@ -844,21 +891,23 @@ const Rooms = () => {
                   />
                 </Form.Group>
               </Col>
+              <Col md={6}>
+                <Form.Group className="mb-3">
+                  <Form.Check
+                    type="checkbox"
+                    name="hasWashroom"
+                    label={<><FaWater className="me-1" /> Has Attached Washroom</>}
+                    checked={editForm.values.hasWashroom}
+                    onChange={(e) => editForm.handleChange({
+                      target: {
+                        name: 'hasWashroom',
+                        value: e.target.checked
+                      }
+                    })}
+                  />
+                </Form.Group>
+              </Col>
             </Row>
-            <Form.Group className="mb-3">
-              <Form.Check
-                type="checkbox"
-                name="hasWashroom"
-                label="Has Attached Washroom"
-                checked={editForm.values.hasWashroom}
-                onChange={(e) => editForm.handleChange({
-                  target: {
-                    name: 'hasWashroom',
-                    value: e.target.checked
-                  }
-                })}
-              />
-            </Form.Group>
             <div className="d-flex justify-content-end gap-2">
               <Button variant="secondary" onClick={() => { setShowEditModal(false); setEditErrors({}); }}>
                 Cancel
@@ -880,10 +929,10 @@ const Rooms = () => {
           {selectedRoom && (
             <div className="mb-3">
               <p>Room: <strong>{selectedRoom.roomNumber}</strong></p>
-              <p>Floor: <Badge bg="secondary">Floor {selectedRoom.floor}</Badge></p>
+              <p>Floor: <Badge bg="secondary"><FaDoorOpen className="me-1" /> Floor {selectedRoom.floor}</Badge></p>
               <p>Current Status: 
                 <Badge bg={statusOptions.find(s => s.value === selectedRoom.status)?.color || 'secondary'} className="ms-2">
-                  {selectedRoom.status}
+                  {statusOptions.find(s => s.value === selectedRoom.status)?.icon} {selectedRoom.status}
                 </Badge>
               </p>
             </div>
@@ -928,7 +977,7 @@ const Rooms = () => {
           {selectedRoom && (
             <div className="mb-3">
               <Alert variant="danger">
-                <h5>⚠️ Warning!</h5>
+                <h5><FaExclamationTriangle className="me-2" /> Warning!</h5>
                 <p>Are you sure you want to delete room <strong>{selectedRoom.roomNumber}</strong>?</p>
                 <p className="mb-0">This action cannot be undone. All associated beds will also be deactivated.</p>
               </Alert>
@@ -962,13 +1011,13 @@ const Rooms = () => {
             <div className="mb-3">
               <Row className="mb-3">
                 <Col md={4}>
-                  <div className="small">Floor: <strong>{selectedRoom.floor}</strong></div>
+                  <div className="small"><FaDoorOpen className="me-1" /> Floor: <strong>{selectedRoom.floor}</strong></div>
                 </Col>
                 <Col md={4}>
-                  <div className="small">Type: <strong>{selectedRoom.roomType}</strong></div>
+                  <div className="small"><FaUsers className="me-1" /> Type: <strong>{selectedRoom.roomType}</strong></div>
                 </Col>
                 <Col md={4}>
-                  <div className="small">Capacity: <strong>{selectedRoom.totalBeds} beds</strong></div>
+                  <div className="small"><FaBed className="me-1" /> Capacity: <strong>{selectedRoom.totalBeds} beds</strong></div>
                 </Col>
               </Row>
             </div>
@@ -996,7 +1045,7 @@ const Rooms = () => {
                     <tr key={bed._id}>
                       <td>
                         <div className="d-flex align-items-center">
-                          <span className="me-2">🛏️</span>
+                          <FaBed className="me-2" />
                           <strong>{bed.bedNumber}</strong>
                         </div>
                       </td>
@@ -1011,11 +1060,13 @@ const Rooms = () => {
                       </td>
                       <td>
                         <div className="small text-muted">
+                          <FaCalendarAlt className="me-1" size={10} />
                           {new Date(bed.createdAt).toLocaleDateString()}
                         </div>
                       </td>
                       <td>
                         <Badge bg={bed.isActive ? 'success' : 'danger'} className="px-2 py-1">
+                          {bed.isActive ? <FaCheck className="me-1" /> : <FaTimes className="me-1" />}
                           {bed.isActive ? 'Yes' : 'No'}
                         </Badge>
                       </td>
@@ -1027,10 +1078,9 @@ const Rooms = () => {
           </div>
           <div className="d-flex justify-content-end gap-2 mt-3">
             <Button variant="outline-primary" size="sm" onClick={() => {
-              // Navigate to beds page with room filter
               window.location.href = `/beds?room=${selectedRoom?._id}`;
             }}>
-              Manage Beds
+              <FaBed className="me-1" /> Manage Beds
             </Button>
             <Button variant="secondary" onClick={() => setShowBedsModal(false)}>
               Close

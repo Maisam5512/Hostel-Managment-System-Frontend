@@ -2,6 +2,7 @@ import React from 'react';
 import { Container, Navbar, Dropdown, Badge } from 'react-bootstrap';
 import { useAuth } from '../../context/AuthContext';
 import { Link, useNavigate } from 'react-router-dom';
+import { FaBuilding, FaMoneyBillWave, FaSignOutAlt, FaBars } from 'react-icons/fa';
 
 const Topbar = ({ onToggleSidebar, sidebarOpen }) => {
   const { user, logout, isAuthenticated } = useAuth();
@@ -60,19 +61,21 @@ const Topbar = ({ onToggleSidebar, sidebarOpen }) => {
                 zIndex: 1060
               }}
             >
-              ☰
+              <FaBars />
             </button>
           )}
 
           <Navbar.Brand>
-            <h4 className="text-orange mb-0">🏨 HostelO</h4>
+            <h4 className="text-orange mb-0">
+              <h4 className="text-orange mb-0">🏨 HostelO</h4>
+            </h4>
           </Navbar.Brand>
         </div>
 
         <div className="d-flex align-items-center">
           <div className="me-3 d-none d-md-block">
             <Badge bg="light" text="dark" className="px-3 py-2">
-              <span className="me-2">💰</span>
+              <FaMoneyBillWave className="me-2" />
               Total Collected: <strong>₹124,500</strong>
             </Badge>
           </div>
@@ -100,7 +103,7 @@ const Topbar = ({ onToggleSidebar, sidebarOpen }) => {
                 <div className="small text-muted mt-1">Role: {getUserRole()}</div>
               </Dropdown.Header>
               <Dropdown.Item onClick={handleLogout} className="text-danger">
-                🚪 Logout
+                <FaSignOutAlt className="me-2" /> Logout
               </Dropdown.Item>
             </Dropdown.Menu>
           </Dropdown>

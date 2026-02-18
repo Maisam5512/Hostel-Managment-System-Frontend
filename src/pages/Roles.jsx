@@ -5,6 +5,13 @@ import LoadingSpinner from '../components/common/LoadingSpinner';
 import { useApi } from '../hooks/useApi';
 import { useForm } from '../hooks/useForm';
 
+// Icons
+import {
+  FaCrown, FaCheckCircle, FaCog, FaLock, FaPlus, FaEdit,
+  FaToggleOn, FaBan, FaExclamationTriangle, FaCalendarAlt,
+  FaCube, FaKey, FaCode, FaLayerGroup
+} from 'react-icons/fa';
+
 const Roles = () => {
   const { callApi, loading, error, data } = useApi();
   const [roles, setRoles] = useState([]);
@@ -13,6 +20,10 @@ const Roles = () => {
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedRole, setSelectedRole] = useState(null);
   const [successMessage, setSuccessMessage] = useState('');
+
+  // Error modal state
+  const [showErrorModal, setShowErrorModal] = useState(false);
+  const [errorModalMessage, setErrorModalMessage] = useState('');
 
   // Validation errors
   const [createErrors, setCreateErrors] = useState({});
@@ -34,6 +45,14 @@ const Roles = () => {
     fetchRoles();
     fetchPermissions();
   }, []);
+
+  // Show API error in modal
+  useEffect(() => {
+    if (error) {
+      setErrorModalMessage(error);
+      setShowErrorModal(true);
+    }
+  }, [error]);
 
   const fetchRoles = async () => {
     try {
@@ -208,7 +227,7 @@ const Roles = () => {
                 onClick={() => setShowCreateModal(true)}
                 className="d-flex align-items-center"
               >
-                <span className="me-2">+</span> Add New Role
+                <FaPlus className="me-2" /> Add New Role
               </Button>
             </div>
           </Col>
@@ -225,16 +244,22 @@ const Roles = () => {
           </Row>
         )}
 
-        {/* Error Message */}
-        {error && (
-          <Row className="mb-3">
-            <Col>
-              <Alert variant="danger">
-                Error: {error}
-              </Alert>
-            </Col>
-          </Row>
-        )}
+        {/* Error Modal (instead of top error alert) */}
+        <Modal show={showErrorModal} onHide={() => setShowErrorModal(false)} centered>
+          <Modal.Header closeButton>
+            <Modal.Title className="text-danger">
+              <FaExclamationTriangle className="me-2" /> Error
+            </Modal.Title>
+          </Modal.Header>
+          <Modal.Body>
+            <p>{errorModalMessage}</p>
+          </Modal.Body>
+          <Modal.Footer>
+            <Button variant="danger" onClick={() => setShowErrorModal(false)}>
+              OK
+            </Button>
+          </Modal.Footer>
+        </Modal>
 
         {/* Stats Cards */}
         <Row className="mb-4">
@@ -247,7 +272,7 @@ const Roles = () => {
                     <h3 className="mb-0">{roles.length}</h3>
                   </div>
                   <div className="bg-primary-light p-2 rounded-circle">
-                    <span style={{ fontSize: '20px' }}>👑</span>
+                    <FaCrown size={20} className="text-primary" />
                   </div>
                 </div>
               </Card.Body>
@@ -262,7 +287,7 @@ const Roles = () => {
                     <h3 className="mb-0">{roles.filter(r => r.isActive).length}</h3>
                   </div>
                   <div className="bg-success-light p-2 rounded-circle">
-                    <span style={{ fontSize: '20px' }}>✅</span>
+                    <FaCheckCircle size={20} className="text-success" />
                   </div>
                 </div>
               </Card.Body>
@@ -277,7 +302,7 @@ const Roles = () => {
                     <h3 className="mb-0">{roles.filter(r => r.isSystemRole).length}</h3>
                   </div>
                   <div className="bg-warning-light p-2 rounded-circle">
-                    <span style={{ fontSize: '20px' }}>⚙️</span>
+                    <FaCog size={20} className="text-warning" />
                   </div>
                 </div>
               </Card.Body>
@@ -296,7 +321,7 @@ const Roles = () => {
                     </h3>
                   </div>
                   <div className="bg-info-light p-2 rounded-circle">
-                    <span style={{ fontSize: '20px' }}>🔐</span>
+                    <FaLock size={20} className="text-info" />
                   </div>
                 </div>
               </Card.Body>
@@ -335,7 +360,7 @@ const Roles = () => {
                             <td>
                               <div className="d-flex align-items-center">
                                 <div className="me-2">
-                                  <span style={{ fontSize: '16px' }}>👑</span>
+                                  <FaCrown className="text-secondary" />
                                 </div>
                                 <div>
                                   <div className="fw-bold">{role.name}</div>
@@ -344,14 +369,14 @@ const Roles = () => {
                             </td>
                             <td>
                               <Badge bg="secondary" className="px-2 py-1">
-                                {role.code}
+                                <FaCode className="me-1" size={10} /> {role.code}
                               </Badge>
                             </td>
                             <td>
                               <div className="d-flex flex-wrap gap-1">
                                 {role.permissions?.slice(0, 3).map((perm) => (
                                   <Badge key={perm._id} bg="info" className="px-1 py-0" style={{ fontSize: '10px' }}>
-                                    {perm.key?.split('_')[0]}
+                                    <FaKey className="me-1" size={8} /> {perm.key?.split('_')[0]}
                                   </Badge>
                                 ))}
                                 {role.permissions?.length > 3 && (
@@ -374,11 +399,13 @@ const Roles = () => {
                                 bg={role.isActive ? 'success' : 'danger'} 
                                 className="px-2 py-1"
                               >
+                                {role.isActive ? <FaCheckCircle className="me-1" /> : <FaBan className="me-1" />}
                                 {role.isActive ? 'Active' : 'Inactive'}
                               </Badge>
                             </td>
                             <td>
                               <div className="small text-muted">
+                                <FaCalendarAlt className="me-1" size={10} />
                                 {new Date(role.createdAt).toLocaleDateString()}
                               </div>
                             </td>
@@ -390,7 +417,7 @@ const Roles = () => {
                                   onClick={() => openEditModal(role)}
                                   // disabled={role.isSystemRole}
                                 >
-                                  Edit
+                                  <FaEdit className="me-1" /> Edit
                                 </Button>
                                 <Button
                                   variant={role.isActive ? 'outline-warning' : 'outline-success'}
@@ -398,6 +425,7 @@ const Roles = () => {
                                   onClick={() => handleToggleStatus(role)}
                                   disabled={role.isSystemRole}
                                 >
+                                  <FaToggleOn className="me-1" />
                                   {role.isActive ? 'Disable' : 'Enable'}
                                 </Button>
                               </div>
@@ -467,13 +495,13 @@ const Roles = () => {
               </Col>
             </Row>
 
-            <h5 className="mb-3">Select Permissions</h5>
+            <h5 className="mb-3"><FaLayerGroup className="me-2" /> Select Permissions</h5>
             <Row>
               {Object.entries(groupedPermissions).map(([module, modulePermissions]) => (
                 <Col md={6} key={module} className="mb-4">
                   <Card className="border">
                     <Card.Header className="bg-light">
-                      <h6 className="mb-0">{module} Module</h6>
+                      <h6 className="mb-0"><FaCube className="me-2" /> {module} Module</h6>
                     </Card.Header>
                     <Card.Body>
                       <div className="d-flex flex-column gap-2">
@@ -559,13 +587,13 @@ const Roles = () => {
               </Col>
             </Row>
 
-            <h5 className="mb-3">Select Permissions</h5>
+            <h5 className="mb-3"><FaLayerGroup className="me-2" /> Select Permissions</h5>
             <Row>
               {Object.entries(groupedPermissions).map(([module, modulePermissions]) => (
                 <Col md={6} key={module} className="mb-4">
                   <Card className="border">
                     <Card.Header className="bg-light">
-                      <h6 className="mb-0">{module} Module</h6>
+                      <h6 className="mb-0"><FaCube className="me-2" /> {module} Module</h6>
                     </Card.Header>
                     <Card.Body>
                       <div className="d-flex flex-column gap-2">

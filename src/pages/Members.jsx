@@ -8,6 +8,16 @@ import { memberService } from '../services/memberService';
 import { bedService } from '../services/bedService';
 import { roomService } from '../services/roomService';
 import { bedAssignmentService } from '../services/bedAssignmentService';
+import { dashboardService } from '../services/dashboardService';
+
+// Icons
+import {
+  FaUsers, FaCheckCircle, FaHome, FaMoneyBillWave, FaUser,
+  FaPhone, FaIdCard, FaBed, FaUtensils, FaHistory, FaEdit,
+  FaTrash, FaPlus, FaFilter, FaTimes, FaDoorOpen, FaUserGraduate,
+  FaCalendarAlt, FaUserTag, FaBan,
+  FaExclamationTriangle, FaLeaf, FaHeartbeat
+} from 'react-icons/fa';
 
 const Members = () => {
   const { callApi, loading, error, data } = useApi();
@@ -19,17 +29,23 @@ const Members = () => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [selectedMember, setSelectedMember] = useState(null);
-  const [successMessage, setSuccessMessage] = useState('');
+  
+  // Modals for success/error messages
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [showErrorModal, setShowErrorModal] = useState(false);
+  const [modalMessage, setModalMessage] = useState('');
+  const [modalTitle, setModalTitle] = useState('');
+
   const [filterStatus, setFilterStatus] = useState('');
   const [filterRoom, setFilterRoom] = useState('');
   const [assignmentHistory, setAssignmentHistory] = useState([]);
   const [memberRoomDetails, setMemberRoomDetails] = useState({});
 
-  // Create form – uses aadhaarNumber (maps to backend cnic)
+  // Create form
   const { values, handleChange, resetForm, setValues } = useForm({
     memberCode: '',
     fullName: '',
-    aadhaarNumber: '',       // single field for Aadhaar number
+    aadhaarNumber: '',
     phone: '',
     guardianName: '',
     guardianPhone: '',
@@ -38,7 +54,7 @@ const Members = () => {
     joinDate: new Date().toISOString().split('T')[0]
   });
 
-  // Edit form – same structure
+  // Edit form
   const editForm = useForm({
     fullName: '',
     phone: '',
@@ -58,6 +74,85 @@ const Members = () => {
     fetchRooms();
   }, []);
 
+  // ---------- Helper: show message in modal ----------
+  const showMessage = (title, message, isSuccess = true) => {
+    setModalTitle(title);
+    setModalMessage(message);
+    if (isSuccess) {
+      setShowSuccessModal(true);
+    } else {
+      setShowErrorModal(true);
+    }
+  };
+
+  // ---------- Validation helpers ----------
+  const isValidAadhaar = (aadhaar) => /^\d{12}$/.test(aadhaar);
+  const isValidPhone = (phone) => /^\d{10}$/.test(phone);
+  const isValidName = (name) => /^[A-Za-z\s]+$/.test(name); // letters and spaces only
+
+  // ---------- Input handlers with validation ----------
+  const handlePhoneChange = (e, formField, formHook) => {
+    const value = e.target.value.replace(/\D/g, ''); // remove non-digits
+    if (value.length <= 10) {
+      formHook.setValues({ ...formHook.values, [formField]: value });
+    }
+  };
+
+  const handleAadhaarChange = (e, formHook) => {
+    const value = e.target.value.replace(/\D/g, '');
+    if (value.length <= 12) {
+      formHook.setValues({ ...formHook.values, aadhaarNumber: value });
+    }
+  };
+
+  const handleGuardianNameChange = (e, formHook) => {
+    const value = e.target.value.replace(/[^A-Za-z\s]/g, ''); // allow only letters and spaces
+    formHook.setValues({ ...formHook.values, guardianName: value });
+  };
+
+  // For create form, we need to override handleChange to enforce rules
+  const enhancedHandleChange = (e) => {
+    const { name, value } = e.target;
+    if (name === 'phone') {
+      const digits = value.replace(/\D/g, '');
+      if (digits.length <= 10) {
+        setValues({ ...values, phone: digits });
+      }
+    } else if (name === 'aadhaarNumber') {
+      const digits = value.replace(/\D/g, '');
+      if (digits.length <= 12) {
+        setValues({ ...values, aadhaarNumber: digits });
+      }
+    } else if (name === 'guardianName') {
+      const letters = value.replace(/[^A-Za-z\s]/g, '');
+      setValues({ ...values, guardianName: letters });
+    } else {
+      handleChange(e);
+    }
+  };
+
+  // For edit form, similar enhancements
+  const enhancedEditHandleChange = (e) => {
+    const { name, value } = e.target;
+    if (name === 'phone') {
+      const digits = value.replace(/\D/g, '');
+      if (digits.length <= 10) {
+        editForm.setValues({ ...editForm.values, phone: digits });
+      }
+    } else if (name === 'aadhaarNumber') {
+      const digits = value.replace(/\D/g, '');
+      if (digits.length <= 12) {
+        editForm.setValues({ ...editForm.values, aadhaarNumber: digits });
+      }
+    } else if (name === 'guardianName') {
+      const letters = value.replace(/[^A-Za-z\s]/g, '');
+      editForm.setValues({ ...editForm.values, guardianName: letters });
+    } else {
+      editForm.handleChange(e);
+    }
+  };
+
+  // ---------- API Calls ----------
   const fetchMembers = async () => {
     try {
       const response = await memberService.getAllMembers();
@@ -71,7 +166,7 @@ const Members = () => {
           registrationNumber: member.memberCode,
           fatherName: member.guardianName,
           phone: member.phone,
-          aadhaarNumber: member.cnic || '',        // store CNIC as aadhaarNumber
+          aadhaarNumber: member.cnic || '',
           address: member.address,
           status: member.status,
           monthlyRent: 15000,
@@ -88,12 +183,10 @@ const Members = () => {
           isActive: member.isActive,
           currentRoomId: member.currentRoomId,
           currentBedId: member.currentBedId,
-          cnic: member.cnic               // keep original for reference
+          cnic: member.cnic
         }));
         
         setMembers(transformedMembers);
-        
-        // Fetch room and bed details for each member
         await fetchMemberRoomDetails(transformedMembers);
       }
     } catch (err) {
@@ -186,13 +279,27 @@ const Members = () => {
     }
   };
 
-  // Handle create – send aadhaarNumber as cnic
+  // Handle create – with validation
   const handleCreateMember = async (formData) => {
+    // Validate fields
+    if (!isValidAadhaar(formData.aadhaarNumber)) {
+      showMessage('Validation Error', 'Aadhaar number must be exactly 12 digits.', false);
+      return;
+    }
+    if (!isValidPhone(formData.phone)) {
+      showMessage('Validation Error', 'Phone number must be exactly 10 digits.', false);
+      return;
+    }
+    if (!isValidName(formData.guardianName)) {
+      showMessage('Validation Error', 'Guardian name must contain only letters and spaces.', false);
+      return;
+    }
+
     try {
       const memberData = {
         memberCode: formData.memberCode,
         fullName: formData.fullName,
-        cnic: formData.aadhaarNumber,           // send as cnic
+        cnic: formData.aadhaarNumber,
         phone: formData.phone,
         guardianName: formData.guardianName,
         guardianPhone: formData.guardianPhone || formData.phone,
@@ -204,26 +311,40 @@ const Members = () => {
       const response = await memberService.createMember(memberData);
       
       if (response.success) {
-        setSuccessMessage('Member created successfully!');
+        showMessage('Success', 'Member created successfully!');
         setShowCreateModal(false);
         resetForm();
         fetchMembers();
-        setTimeout(() => setSuccessMessage(''), 3000);
+        dashboardService.refreshDashboardStats().catch(console.error);
+      } else {
+        showMessage('Error', response.message || 'Failed to create member.', false);
       }
     } catch (err) {
       console.error('Error creating member:', err);
-      setSuccessMessage(err.message || 'Error creating member');
-      setTimeout(() => setSuccessMessage(''), 3000);
+      showMessage('Error', err.message || 'Error creating member', false);
     }
   };
 
-  // Handle edit – send aadhaarNumber as cnic
+  // Handle edit – with validation
   const handleEditMember = async (formData) => {
+    if (!isValidAadhaar(formData.aadhaarNumber)) {
+      showMessage('Validation Error', 'Aadhaar number must be exactly 12 digits.', false);
+      return;
+    }
+    if (!isValidPhone(formData.phone)) {
+      showMessage('Validation Error', 'Phone number must be exactly 10 digits.', false);
+      return;
+    }
+    if (!isValidName(formData.guardianName)) {
+      showMessage('Validation Error', 'Guardian name must contain only letters and spaces.', false);
+      return;
+    }
+
     try {
       const updateData = {
         fullName: formData.fullName,
         phone: formData.phone,
-        cnic: formData.aadhaarNumber,           // send as cnic
+        cnic: formData.aadhaarNumber,
         guardianName: formData.guardianName,
         guardianPhone: formData.guardianPhone,
         instituteName: formData.instituteName,
@@ -233,16 +354,17 @@ const Members = () => {
       const response = await memberService.updateMember(selectedMember._id, updateData);
       
       if (response.success) {
-        setSuccessMessage('Member updated successfully!');
+        showMessage('Success', 'Member updated successfully!');
         setShowEditModal(false);
         setSelectedMember(null);
         fetchMembers();
-        setTimeout(() => setSuccessMessage(''), 3000);
+        dashboardService.refreshDashboardStats().catch(console.error);
+      } else {
+        showMessage('Error', response.message || 'Failed to update member.', false);
       }
     } catch (err) {
       console.error('Error updating member:', err);
-      setSuccessMessage(err.message || 'Error updating member');
-      setTimeout(() => setSuccessMessage(''), 3000);
+      showMessage('Error', err.message || 'Error updating member', false);
     }
   };
 
@@ -251,16 +373,17 @@ const Members = () => {
       const response = await memberService.updateMemberStatus(selectedMember._id, formData.status);
       
       if (response.success) {
-        setSuccessMessage(`Member status updated to ${formData.status} successfully!`);
+        showMessage('Success', `Member status updated to ${formData.status} successfully!`);
         setShowStatusModal(false);
         setSelectedMember(null);
         fetchMembers();
-        setTimeout(() => setSuccessMessage(''), 3000);
+        dashboardService.refreshDashboardStats().catch(console.error);
+      } else {
+        showMessage('Error', response.message || 'Failed to update status.', false);
       }
     } catch (err) {
       console.error('Error updating member status:', err);
-      setSuccessMessage(err.message || 'Error updating member status');
-      setTimeout(() => setSuccessMessage(''), 3000);
+      showMessage('Error', err.message || 'Error updating member status', false);
     }
   };
 
@@ -269,20 +392,20 @@ const Members = () => {
       const response = await memberService.deleteMember(selectedMember._id);
       
       if (response.success) {
-        setSuccessMessage('Member deactivated successfully!');
+        showMessage('Success', 'Member deactivated successfully!');
         setShowDeleteModal(false);
         setSelectedMember(null);
         fetchMembers();
-        setTimeout(() => setSuccessMessage(''), 3000);
+        await dashboardService.refreshDashboardStats();
+      } else {
+        showMessage('Error', response.message || 'Failed to deactivate member.', false);
       }
     } catch (err) {
       console.error('Error deleting member:', err);
-      setSuccessMessage(err.message || 'Error deleting member');
-      setTimeout(() => setSuccessMessage(''), 3000);
+      showMessage('Error', err.message || 'Error deleting member', false);
     }
   };
 
-  // Open edit modal – populate aadhaarNumber from member.cnic
   const openEditModal = (member) => {
     setSelectedMember(member);
     editForm.setValues({
@@ -315,15 +438,15 @@ const Members = () => {
   };
 
   const statusOptions = [
-    { value: 'ACTIVE', label: 'Active', color: 'success', icon: '✅' },
-    { value: 'ON_LEAVE', label: 'On Leave', color: 'warning', icon: '🏖️' },
-    { value: 'LEFT', label: 'Left', color: 'secondary', icon: '🚪' }
+    { value: 'ACTIVE', label: 'Active', color: 'success', icon: <FaCheckCircle /> },
+    { value: 'ON_LEAVE', label: 'On Leave', color: 'warning', icon: <FaBan /> },
+    { value: 'LEFT', label: 'Left', color: 'secondary', icon: <FaDoorOpen /> }
   ];
 
   const dietOptions = [
-    { value: 'NORMAL', label: 'Normal', icon: '🍛' },
-    { value: 'VEG', label: 'Vegetarian', icon: '🥦' },
-    { value: 'DIABETIC', label: 'Diabetic', icon: '🩺' }
+    { value: 'NORMAL', label: 'Normal', icon: <FaUtensils /> },
+    { value: 'VEG', label: 'Vegetarian', icon: <FaLeaf /> },
+    { value: 'DIABETIC', label: 'Diabetic', icon: <FaHeartbeat /> }
   ];
 
   const filteredMembers = members.filter(member => {
@@ -356,35 +479,46 @@ const Members = () => {
                 onClick={() => setShowCreateModal(true)}
                 className="d-flex align-items-center"
               >
-                <span className="me-2">+</span> Add New Member
+                <FaPlus className="me-2" /> Add New Member
               </Button>
             </div>
           </Col>
         </Row>
 
-        {/* Success Message */}
-        {successMessage && (
-          <Row className="mb-3">
-            <Col>
-              <Alert variant="success" onClose={() => setSuccessMessage('')} dismissible>
-                {successMessage}
-              </Alert>
-            </Col>
-          </Row>
-        )}
+        {/* Success/Error Modals (instead of banners) */}
+        <Modal show={showSuccessModal} onHide={() => setShowSuccessModal(false)} centered>
+          <Modal.Header closeButton>
+            <Modal.Title className="text-success">
+              <FaCheckCircle className="me-2" /> {modalTitle}
+            </Modal.Title>
+          </Modal.Header>
+          <Modal.Body>
+            <p>{modalMessage}</p>
+          </Modal.Body>
+          <Modal.Footer>
+            <Button variant="success" onClick={() => setShowSuccessModal(false)}>
+              OK
+            </Button>
+          </Modal.Footer>
+        </Modal>
 
-        {/* Error Message */}
-        {error && (
-          <Row className="mb-3">
-            <Col>
-              <Alert variant="danger">
-                Error: {error}
-              </Alert>
-            </Col>
-          </Row>
-        )}
+        <Modal show={showErrorModal} onHide={() => setShowErrorModal(false)} centered>
+          <Modal.Header closeButton>
+            <Modal.Title className="text-danger">
+              <FaExclamationTriangle className="me-2" /> {modalTitle}
+            </Modal.Title>
+          </Modal.Header>
+          <Modal.Body>
+            <p>{modalMessage}</p>
+          </Modal.Body>
+          <Modal.Footer>
+            <Button variant="danger" onClick={() => setShowErrorModal(false)}>
+              OK
+            </Button>
+          </Modal.Footer>
+        </Modal>
 
-        {/* Stats Cards */}
+        {/* Stats Cards (unchanged) */}
         <Row className="mb-4">
           <Col md={3}>
             <Card className="border-0 shadow-sm">
@@ -395,7 +529,7 @@ const Members = () => {
                     <h3 className="mb-0">{members.length}</h3>
                   </div>
                   <div className="bg-primary-light p-2 rounded-circle">
-                    <span style={{ fontSize: '20px' }}>👥</span>
+                    <FaUsers size={20} />
                   </div>
                 </div>
               </Card.Body>
@@ -410,7 +544,7 @@ const Members = () => {
                     <h3 className="mb-0">{members.filter(m => m.status === 'ACTIVE').length}</h3>
                   </div>
                   <div className="bg-success-light p-2 rounded-circle">
-                    <span style={{ fontSize: '20px' }}>✅</span>
+                    <FaCheckCircle size={20} className="text-success" />
                   </div>
                 </div>
               </Card.Body>
@@ -425,7 +559,7 @@ const Members = () => {
                     <h3 className="mb-0">{Object.keys(memberRoomDetails).length}</h3>
                   </div>
                   <div className="bg-info-light p-2 rounded-circle">
-                    <span style={{ fontSize: '20px' }}>🏠</span>
+                    <FaHome size={20} className="text-info" />
                   </div>
                 </div>
               </Card.Body>
@@ -442,7 +576,7 @@ const Members = () => {
                     </h3>
                   </div>
                   <div className="bg-danger-light p-2 rounded-circle">
-                    <span style={{ fontSize: '20px' }}>💰</span>
+                    <FaMoneyBillWave size={20} className="text-danger" />
                   </div>
                 </div>
               </Card.Body>
@@ -450,11 +584,11 @@ const Members = () => {
           </Col>
         </Row>
 
-        {/* Filters */}
+        {/* Filters (unchanged) */}
         <Row className="mb-3">
           <Col md={4}>
             <Form.Group>
-              <Form.Label>Filter by Status</Form.Label>
+              <Form.Label><FaFilter className="me-1" /> Filter by Status</Form.Label>
               <Form.Select
                 value={filterStatus}
                 onChange={(e) => setFilterStatus(e.target.value)}
@@ -468,7 +602,7 @@ const Members = () => {
           </Col>
           <Col md={4}>
             <Form.Group>
-              <Form.Label>Filter by Room</Form.Label>
+              <Form.Label><FaHome className="me-1" /> Filter by Room</Form.Label>
               <Form.Select
                 value={filterRoom}
                 onChange={(e) => setFilterRoom(e.target.value)}
@@ -489,12 +623,12 @@ const Members = () => {
               }}
               className="me-2"
             >
-              Clear Filters
+              <FaTimes className="me-1" /> Clear Filters
             </Button>
           </Col>
         </Row>
 
-        {/* Members Table – ID Proof column now shows Aadhaar Number */}
+        {/* Members Table (unchanged) */}
         <Row>
           <Col>
             <Card className="border-0 shadow-sm">
@@ -540,6 +674,7 @@ const Members = () => {
                                   <div>
                                     <div className="fw-bold">{member.fullName || member.user?.fullName || 'Unknown'}</div>
                                     <div className="small text-muted">
+                                      <FaUserGraduate className="me-1" size={10} />
                                       Institute: {member.instituteName || 'Not specified'}
                                     </div>
                                   </div>
@@ -550,23 +685,28 @@ const Members = () => {
                                   <Badge bg="secondary" className="px-2 py-1 mb-1">
                                     {member.registrationNumber || member.memberCode || `M-${member._id?.slice(-4).toUpperCase()}`}
                                   </Badge>
-                                  <div className="small text-muted">Joined: {member.joiningDate || 'N/A'}</div>
+                                  <div className="small text-muted">
+                                    <FaCalendarAlt className="me-1" size={10} />
+                                    Joined: {member.joiningDate || 'N/A'}
+                                  </div>
                                 </div>
                               </td>
                               <td>
                                 <div>
-                                  <div>{member.phone || 'N/A'}</div>
+                                  <div><FaPhone className="me-1" size={10} /> {member.phone || 'N/A'}</div>
                                   <div className="small text-muted">
+                                    <FaUser className="me-1" size={10} />
                                     Guardian: {member.guardianName || 'N/A'}
                                   </div>
                                   <div className="small text-muted">
+                                    <FaPhone className="me-1" size={10} />
                                     {member.guardianPhone || 'No guardian phone'}
                                   </div>
                                 </div>
                               </td>
                               <td>
                                 {member.aadhaarNumber ? (
-                                  <span>{member.aadhaarNumber}</span>
+                                  <span><FaIdCard className="me-1" /> {member.aadhaarNumber}</span>
                                 ) : (
                                   <span className="text-muted">N/A</span>
                                 )}
@@ -576,12 +716,12 @@ const Members = () => {
                                   {memberDetails ? (
                                     <>
                                       <Badge bg="info" className="px-2 py-1 mb-1">
-                                        Room: {memberDetails.roomInfo?.roomNumber || 'Unknown'}
+                                        <FaHome className="me-1" /> Room: {memberDetails.roomInfo?.roomNumber || 'Unknown'}
                                       </Badge>
                                       <div className="small mt-1">
                                         {memberDetails.bedInfo ? (
                                           <Badge bg="primary" className="px-1 py-0">
-                                            Bed: {memberDetails.bedInfo.bedNumber}
+                                            <FaBed className="me-1" /> Bed: {memberDetails.bedInfo.bedNumber}
                                           </Badge>
                                         ) : (
                                           <span className="text-warning">No bed details</span>
@@ -637,28 +777,28 @@ const Members = () => {
                                     size="sm"
                                     onClick={() => openEditModal(member)}
                                   >
-                                    Edit
+                                    <FaEdit className="me-1" /> Edit
                                   </Button>
                                   <Button
                                     variant="outline-info"
                                     size="sm"
                                     onClick={() => openHistoryModal(member)}
                                   >
-                                    History
+                                    <FaHistory className="me-1" /> History
                                   </Button>
                                   <Button
                                     variant="outline-secondary"
                                     size="sm"
                                     onClick={() => openStatusModal(member)}
                                   >
-                                    Status
+                                    <FaUserTag className="me-1" /> Status
                                   </Button>
                                   <Button
                                     variant="outline-danger"
                                     size="sm"
                                     onClick={() => openDeleteModal(member)}
                                   >
-                                    Delete
+                                    <FaTrash className="me-1" /> Delete
                                   </Button>
                                 </div>
                               </td>
@@ -675,7 +815,7 @@ const Members = () => {
         </Row>
       </Container>
 
-      {/* Create Member Modal – only Aadhaar Number field */}
+      {/* Create Member Modal – with enhanced input handlers */}
       <Modal show={showCreateModal} onHide={() => setShowCreateModal(false)} size="lg">
         <Modal.Header closeButton>
           <Modal.Title>Register New Member</Modal.Title>
@@ -717,28 +857,36 @@ const Members = () => {
             <Row>
               <Col md={6}>
                 <Form.Group className="mb-3">
-                  <Form.Label>Aadhaar Number *</Form.Label>
+                  <Form.Label>Aadhaar Number * (12 digits)</Form.Label>
                   <Form.Control
                     type="text"
                     name="aadhaarNumber"
                     value={values.aadhaarNumber}
-                    onChange={handleChange}
-                    placeholder="Enter Aadhaar number"
+                    onChange={enhancedHandleChange}
+                    placeholder="Enter 12-digit Aadhaar"
+                    maxLength="12"
                     required
                   />
+                  <Form.Text className="text-muted">
+                    {values.aadhaarNumber.length}/12 digits
+                  </Form.Text>
                 </Form.Group>
               </Col>
               <Col md={6}>
                 <Form.Group className="mb-3">
-                  <Form.Label>Phone Number *</Form.Label>
+                  <Form.Label>Phone Number * (10 digits)</Form.Label>
                   <Form.Control
                     type="text"
                     name="phone"
                     value={values.phone}
-                    onChange={handleChange}
-                    placeholder="e.g., 03001234567"
+                    onChange={enhancedHandleChange}
+                    placeholder="e.g., 9876543210"
+                    maxLength="10"
                     required
                   />
+                  <Form.Text className="text-muted">
+                    {values.phone.length}/10 digits
+                  </Form.Text>
                 </Form.Group>
               </Col>
             </Row>
@@ -750,7 +898,7 @@ const Members = () => {
                     type="text"
                     name="guardianName"
                     value={values.guardianName}
-                    onChange={handleChange}
+                    onChange={enhancedHandleChange}
                     placeholder="Enter guardian's name"
                     required
                   />
@@ -763,8 +911,14 @@ const Members = () => {
                     type="text"
                     name="guardianPhone"
                     value={values.guardianPhone}
-                    onChange={handleChange}
-                    placeholder="e.g., 03001234568"
+                    onChange={(e) => {
+                      const digits = e.target.value.replace(/\D/g, '');
+                      if (digits.length <= 10) {
+                        setValues({ ...values, guardianPhone: digits });
+                      }
+                    }}
+                    placeholder="e.g., 9876543210"
+                    maxLength="10"
                   />
                 </Form.Group>
               </Col>
@@ -822,7 +976,7 @@ const Members = () => {
         </Modal.Body>
       </Modal>
 
-      {/* Edit Member Modal – only Aadhaar Number field */}
+      {/* Edit Member Modal – with enhanced input handlers */}
       <Modal show={showEditModal} onHide={() => setShowEditModal(false)} size="lg">
         <Modal.Header closeButton>
           <Modal.Title>Edit Member: {selectedMember?.fullName || selectedMember?.user?.fullName}</Modal.Title>
@@ -848,12 +1002,13 @@ const Members = () => {
               </Col>
               <Col md={6}>
                 <Form.Group className="mb-3">
-                  <Form.Label>Phone Number *</Form.Label>
+                  <Form.Label>Phone Number * (10 digits)</Form.Label>
                   <Form.Control
                     type="text"
                     name="phone"
                     value={editForm.values.phone}
-                    onChange={editForm.handleChange}
+                    onChange={enhancedEditHandleChange}
+                    maxLength="10"
                     required
                   />
                 </Form.Group>
@@ -862,12 +1017,13 @@ const Members = () => {
             <Row>
               <Col md={6}>
                 <Form.Group className="mb-3">
-                  <Form.Label>Aadhaar Number *</Form.Label>
+                  <Form.Label>Aadhaar Number * (12 digits)</Form.Label>
                   <Form.Control
                     type="text"
                     name="aadhaarNumber"
                     value={editForm.values.aadhaarNumber}
-                    onChange={editForm.handleChange}
+                    onChange={enhancedEditHandleChange}
+                    maxLength="12"
                     required
                   />
                 </Form.Group>
@@ -879,7 +1035,7 @@ const Members = () => {
                     type="text"
                     name="guardianName"
                     value={editForm.values.guardianName}
-                    onChange={editForm.handleChange}
+                    onChange={enhancedEditHandleChange}
                     required
                   />
                 </Form.Group>
@@ -893,7 +1049,13 @@ const Members = () => {
                     type="text"
                     name="guardianPhone"
                     value={editForm.values.guardianPhone}
-                    onChange={editForm.handleChange}
+                    onChange={(e) => {
+                      const digits = e.target.value.replace(/\D/g, '');
+                      if (digits.length <= 10) {
+                        editForm.setValues({ ...editForm.values, guardianPhone: digits });
+                      }
+                    }}
+                    maxLength="10"
                   />
                 </Form.Group>
               </Col>
@@ -935,7 +1097,7 @@ const Members = () => {
         </Modal.Body>
       </Modal>
 
-      {/* Change Status Modal – updated to show Aadhaar Number */}
+      {/* Change Status Modal (unchanged) */}
       <Modal show={showStatusModal} onHide={() => setShowStatusModal(false)}>
         <Modal.Header closeButton>
           <Modal.Title>Change Member Status</Modal.Title>
@@ -947,14 +1109,14 @@ const Members = () => {
               <p>Registration: <Badge bg="secondary">{selectedMember.registrationNumber || selectedMember.memberCode}</Badge></p>
               <p>Current Status: 
                 <Badge bg={statusOptions.find(s => s.value === selectedMember.status)?.color || 'secondary'} className="ms-2">
-                  {selectedMember.status}
+                  {statusOptions.find(s => s.value === selectedMember.status)?.icon} {selectedMember.status}
                 </Badge>
               </p>
               {selectedMember.aadhaarNumber && (
-                <p>Aadhaar: {selectedMember.aadhaarNumber}</p>
+                <p><FaIdCard className="me-1" /> Aadhaar: {selectedMember.aadhaarNumber}</p>
               )}
               {memberRoomDetails[selectedMember._id] && (
-                <p>Current Room: {memberRoomDetails[selectedMember._id]?.roomInfo?.roomNumber || 'Unknown'}</p>
+                <p><FaHome className="me-1" /> Current Room: {memberRoomDetails[selectedMember._id]?.roomInfo?.roomNumber || 'Unknown'}</p>
               )}
             </div>
           )}
@@ -994,7 +1156,7 @@ const Members = () => {
         </Modal.Body>
       </Modal>
 
-      {/* Assignment History Modal – unchanged */}
+      {/* Assignment History Modal (unchanged) */}
       <Modal show={showHistoryModal} onHide={() => setShowHistoryModal(false)} size="lg">
         <Modal.Header closeButton>
           <Modal.Title>Assignment History for {selectedMember?.fullName || selectedMember?.user?.fullName}</Modal.Title>
@@ -1046,7 +1208,7 @@ const Members = () => {
         </Modal.Footer>
       </Modal>
 
-      {/* Delete Confirmation Modal – updated to show Aadhaar Number */}
+      {/* Delete Confirmation Modal (unchanged) */}
       <Modal show={showDeleteModal} onHide={() => setShowDeleteModal(false)}>
         <Modal.Header closeButton>
           <Modal.Title>Deactivate Member</Modal.Title>
@@ -1055,7 +1217,7 @@ const Members = () => {
           {selectedMember && (
             <div className="mb-3">
               <Alert variant="warning">
-                <h5>⚠️ Deactivate Member</h5>
+                <h5><FaExclamationTriangle className="me-2" /> Deactivate Member</h5>
                 <p>Are you sure you want to deactivate member <strong>{selectedMember.fullName || selectedMember.user?.fullName}</strong>?</p>
                 <p className="mb-0">This will mark the member as inactive in the system. The member can be reactivated later.</p>
               </Alert>
@@ -1063,11 +1225,11 @@ const Members = () => {
                 <p><strong>Member Details:</strong></p>
                 <p>Registration: {selectedMember.registrationNumber || selectedMember.memberCode}</p>
                 {selectedMember.aadhaarNumber && (
-                  <p>Aadhaar: {selectedMember.aadhaarNumber}</p>
+                  <p><FaIdCard className="me-1" /> Aadhaar: {selectedMember.aadhaarNumber}</p>
                 )}
                 <p>Status: {selectedMember.status}</p>
                 {memberRoomDetails[selectedMember._id] && (
-                  <p>Current Room: {memberRoomDetails[selectedMember._id]?.roomInfo?.roomNumber || 'Unknown'}</p>
+                  <p><FaHome className="me-1" /> Current Room: {memberRoomDetails[selectedMember._id]?.roomInfo?.roomNumber || 'Unknown'}</p>
                 )}
               </div>
             </div>

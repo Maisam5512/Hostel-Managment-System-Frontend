@@ -5,6 +5,14 @@ import LoadingSpinner from '../components/common/LoadingSpinner';
 import { useApi } from '../hooks/useApi';
 import { useForm } from '../hooks/useForm';
 
+// Icons
+import {
+  FaBed, FaCheckCircle, FaTools, FaUser, FaBan, FaPlus,
+  FaFilter, FaTimes, FaEdit, FaToggleOn, FaTrash,
+  FaExclamationTriangle, FaCalendarAlt, FaDoorOpen, FaHome,
+  FaUsers, FaWrench
+} from 'react-icons/fa';
+
 const Beds = () => {
   const { callApi, loading, error, data } = useApi();
   const [beds, setBeds] = useState([]);
@@ -15,7 +23,11 @@ const Beds = () => {
   const [successMessage, setSuccessMessage] = useState('');
   const [filterRoom, setFilterRoom] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
-  
+
+  // Error modal state
+  const [showErrorModal, setShowErrorModal] = useState(false);
+  const [errorModalMessage, setErrorModalMessage] = useState('');
+
   // Validation errors
   const [createErrors, setCreateErrors] = useState({});
 
@@ -33,6 +45,14 @@ const Beds = () => {
     fetchBeds();
     fetchRooms();
   }, []);
+
+  // Show API error in modal
+  useEffect(() => {
+    if (error) {
+      setErrorModalMessage(error);
+      setShowErrorModal(true);
+    }
+  }, [error]);
 
   const fetchBeds = async () => {
     try {
@@ -54,6 +74,14 @@ const Beds = () => {
     } catch (err) {
       console.error('Error fetching rooms:', err);
     }
+  };
+
+  // Helper to get room details from rooms state
+  const getRoomDetails = (roomId) => {
+    if (!roomId) return null;
+    // roomId could be an object or a string
+    const id = typeof roomId === 'object' ? roomId._id : roomId;
+    return rooms.find(r => r._id === id);
   };
 
   // Validation function for create bed
@@ -130,15 +158,16 @@ const Beds = () => {
   };
 
   const filteredBeds = beds.filter(bed => {
-    if (filterRoom && bed.room_Id?._id !== filterRoom) return false;
+    const roomId = typeof bed.room_Id === 'object' ? bed.room_Id?._id : bed.room_Id;
+    if (filterRoom && roomId !== filterRoom) return false;
     if (filterStatus && bed.status !== filterStatus) return false;
     return true;
   });
 
   const statusOptions = [
-    { value: 'AVAILABLE', label: 'Available', color: 'success' },
-    { value: 'OCCUPIED', label: 'Occupied', color: 'warning' },
-    { value: 'MAINTENANCE', label: 'Maintenance', color: 'danger' }
+    { value: 'AVAILABLE', label: 'Available', color: 'success', icon: <FaCheckCircle /> },
+    { value: 'OCCUPIED', label: 'Occupied', color: 'warning', icon: <FaUser /> },
+    { value: 'MAINTENANCE', label: 'Maintenance', color: 'danger', icon: <FaWrench /> }
   ];
 
   if (loading && beds.length === 0) {
@@ -165,7 +194,7 @@ const Beds = () => {
                 onClick={() => setShowCreateModal(true)}
                 className="d-flex align-items-center"
               >
-                <span className="me-2">+</span> Add New Bed
+                <FaPlus className="me-2" /> Add New Bed
               </Button>
             </div>
           </Col>
@@ -182,16 +211,22 @@ const Beds = () => {
           </Row>
         )}
 
-        {/* Error Message */}
-        {error && (
-          <Row className="mb-3">
-            <Col>
-              <Alert variant="danger">
-                Error: {error}
-              </Alert>
-            </Col>
-          </Row>
-        )}
+        {/* Error Modal (instead of top error alert) */}
+        <Modal show={showErrorModal} onHide={() => setShowErrorModal(false)} centered>
+          <Modal.Header closeButton>
+            <Modal.Title className="text-danger">
+              <FaExclamationTriangle className="me-2" /> Error
+            </Modal.Title>
+          </Modal.Header>
+          <Modal.Body>
+            <p>{errorModalMessage}</p>
+          </Modal.Body>
+          <Modal.Footer>
+            <Button variant="danger" onClick={() => setShowErrorModal(false)}>
+              OK
+            </Button>
+          </Modal.Footer>
+        </Modal>
 
         {/* Stats Cards */}
         <Row className="mb-4">
@@ -204,7 +239,7 @@ const Beds = () => {
                     <h3 className="mb-0">{beds.length}</h3>
                   </div>
                   <div className="bg-primary-light p-2 rounded-circle">
-                    <span style={{ fontSize: '20px' }}>🛏️</span>
+                    <FaBed size={20} className="text-primary" />
                   </div>
                 </div>
               </Card.Body>
@@ -219,7 +254,7 @@ const Beds = () => {
                     <h3 className="mb-0">{beds.filter(b => b.status === 'AVAILABLE').length}</h3>
                   </div>
                   <div className="bg-success-light p-2 rounded-circle">
-                    <span style={{ fontSize: '20px' }}>✅</span>
+                    <FaCheckCircle size={20} className="text-success" />
                   </div>
                 </div>
               </Card.Body>
@@ -234,7 +269,7 @@ const Beds = () => {
                     <h3 className="mb-0">{beds.filter(b => b.status === 'OCCUPIED').length}</h3>
                   </div>
                   <div className="bg-warning-light p-2 rounded-circle">
-                    <span style={{ fontSize: '20px' }}>👤</span>
+                    <FaUser size={20} className="text-warning" />
                   </div>
                 </div>
               </Card.Body>
@@ -249,7 +284,7 @@ const Beds = () => {
                     <h3 className="mb-0">{beds.filter(b => b.status === 'MAINTENANCE').length}</h3>
                   </div>
                   <div className="bg-danger-light p-2 rounded-circle">
-                    <span style={{ fontSize: '20px' }}>🔧</span>
+                    <FaWrench size={20} className="text-danger" />
                   </div>
                 </div>
               </Card.Body>
@@ -261,7 +296,7 @@ const Beds = () => {
         <Row className="mb-3">
           <Col md={4}>
             <Form.Group>
-              <Form.Label>Filter by Room</Form.Label>
+              <Form.Label><FaFilter className="me-1" /> Filter by Room</Form.Label>
               <Form.Select
                 value={filterRoom}
                 onChange={(e) => setFilterRoom(e.target.value)}
@@ -275,7 +310,7 @@ const Beds = () => {
           </Col>
           <Col md={4}>
             <Form.Group>
-              <Form.Label>Filter by Status</Form.Label>
+              <Form.Label><FaBan className="me-1" /> Filter by Status</Form.Label>
               <Form.Select
                 value={filterStatus}
                 onChange={(e) => setFilterStatus(e.target.value)}
@@ -296,7 +331,7 @@ const Beds = () => {
               }}
               className="me-2"
             >
-              Clear Filters
+              <FaTimes className="me-1" /> Clear Filters
             </Button>
           </Col>
         </Row>
@@ -328,71 +363,83 @@ const Beds = () => {
                           </td>
                         </tr>
                       ) : (
-                        filteredBeds.map((bed) => (
-                          <tr key={bed._id}>
-                            <td>
-                              <div className="d-flex align-items-center">
-                                <div className="me-2">
-                                  <span style={{ fontSize: '16px' }}>🛏️</span>
+                        filteredBeds.map((bed) => {
+                          const roomDetails = getRoomDetails(bed.room_Id);
+                          const roomNumber = roomDetails?.roomNumber || bed.room_Id?.roomNumber || 'N/A';
+                          const floor = roomDetails?.floor || bed.room_Id?.floor || 'N/A';
+                          const roomType = roomDetails?.roomType || bed.room_Id?.roomType || 'N/A';
+                          const statusOption = statusOptions.find(s => s.value === bed.status);
+
+                          return (
+                            <tr key={bed._id}>
+                              <td>
+                                <div className="d-flex align-items-center">
+                                  <div className="me-2">
+                                    <FaBed className="text-secondary" />
+                                  </div>
+                                  <div>
+                                    <div className="fw-bold">{bed.bedNumber}</div>
+                                    <div className="small text-muted">ID: {bed._id?.slice(-6)}</div>
+                                  </div>
                                 </div>
-                                <div>
-                                  <div className="fw-bold">{bed.bedNumber}</div>
-                                  <div className="small text-muted">ID: {bed._id?.slice(-6)}</div>
+                              </td>
+                              <td>
+                                <Badge bg="info" className="px-2 py-1">
+                                  {roomNumber}
+                                </Badge>
+                              </td>
+                              <td>
+                                <div><FaDoorOpen className="me-1" size={10} /> Floor {floor}</div>
+                              </td>
+                              <td>
+                                <div>{roomType}</div>
+                              </td>
+                              <td>
+                                <Badge 
+                                  bg={statusOption?.color || 'secondary'} 
+                                  className="px-2 py-1"
+                                >
+                                  {statusOption?.icon} {bed.status}
+                                </Badge>
+                              </td>
+                              <td>
+                                <Badge 
+                                  bg={bed.isActive ? 'success' : 'danger'} 
+                                  className="px-2 py-1"
+                                >
+                                  {bed.isActive ? 'Yes' : 'No'}
+                                </Badge>
+                              </td>
+                              <td>
+                                <div className="small text-muted">
+                                  <FaCalendarAlt className="me-1" size={10} />
+                                  {new Date(bed.createdAt).toLocaleDateString()}
                                 </div>
-                              </div>
-                            </td>
-                            <td>
-                              <Badge bg="info" className="px-2 py-1">
-                                {bed.room_Id?.roomNumber || 'N/A'}
-                              </Badge>
-                            </td>
-                            <td>
-                              <div>Floor {bed.room_Id?.floor || 'N/A'}</div>
-                            </td>
-                            <td>
-                              <div>{bed.room_Id?.roomType || 'N/A'}</div>
-                            </td>
-                            <td>
-                              <Badge 
-                                bg={statusOptions.find(s => s.value === bed.status)?.color || 'secondary'} 
-                                className="px-2 py-1"
-                              >
-                                {bed.status}
-                              </Badge>
-                            </td>
-                            <td>
-                              <Badge 
-                                bg={bed.isActive ? 'success' : 'danger'} 
-                                className="px-2 py-1"
-                              >
-                                {bed.isActive ? 'Yes' : 'No'}
-                              </Badge>
-                            </td>
-                            <td>
-                              <div className="small text-muted">
-                                {new Date(bed.createdAt).toLocaleDateString()}
-                              </div>
-                            </td>
-                            <td>
-                              <div className="d-flex gap-1">
-                                <Button
-                                  variant="outline-primary"
-                                  size="sm"
-                                  onClick={() => openStatusModal(bed)}
-                                >
-                                  Change Status
-                                </Button>
-                                <Button
-                                  variant={bed.isActive ? 'outline-warning' : 'outline-success'}
-                                  size="sm"
-                                  onClick={() => handleToggleActive(bed)}
-                                >
-                                  {bed.isActive ? 'Deactivate' : 'Activate'}
-                                </Button>
-                              </div>
-                            </td>
-                          </tr>
-                        ))
+                              </td>
+                              <td>
+                                <div className="d-flex gap-1">
+                                  <Button
+                                    variant="outline-primary"
+                                    size="sm"
+                                    onClick={() => openStatusModal(bed)}
+                                    title="Change Status"
+                                  >
+                                    <FaEdit className="me-1" /> Status
+                                  </Button>
+                                  <Button
+                                    variant={bed.isActive ? 'outline-warning' : 'outline-success'}
+                                    size="sm"
+                                    onClick={() => handleToggleActive(bed)}
+                                    title={bed.isActive ? 'Deactivate' : 'Activate'}
+                                  >
+                                    <FaToggleOn className="me-1" />
+                                    {bed.isActive ? 'Deactivate' : 'Activate'}
+                                  </Button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })
                       )}
                     </tbody>
                   </Table>
@@ -485,9 +532,11 @@ const Beds = () => {
             <div className="mb-3">
               <p>Bed: <strong>{selectedBed.bedNumber}</strong></p>
               <p>Room: <Badge bg="info">{selectedBed.room_Id?.roomNumber || 'N/A'}</Badge></p>
-              <p>Current Status: <Badge bg={statusOptions.find(s => s.value === selectedBed.status)?.color || 'secondary'}>
-                {selectedBed.status}
-              </Badge></p>
+              <p>Current Status: 
+                <Badge bg={statusOptions.find(s => s.value === selectedBed.status)?.color || 'secondary'} className="ms-2">
+                  {statusOptions.find(s => s.value === selectedBed.status)?.icon} {selectedBed.status}
+                </Badge>
+              </p>
             </div>
           )}
           <Form onSubmit={(e) => {
@@ -503,7 +552,9 @@ const Beds = () => {
                 required
               >
                 {statusOptions.map(option => (
-                  <option key={option.value} value={option.value}>{option.label}</option>
+                  <option key={option.value} value={option.value}>
+                    {option.icon} {option.label}
+                  </option>
                 ))}
               </Form.Select>
             </Form.Group>

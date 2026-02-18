@@ -16,6 +16,14 @@ import Layout from '../components/layout/Layout';
 import { foodItemService } from '../services/foodItemService';
 import { useAuth } from '../context/AuthContext';
 
+// Icons
+import {
+  FaUtensils, FaPlus, FaFilter, FaTimes, FaEdit, FaTrash,
+  FaExclamationTriangle, FaCheckCircle, FaBan, FaSun,
+  FaCloudSun, FaMoon, FaCookieBite, FaUser, FaCalendarAlt,
+  FaIdCard, FaMoneyBillWave, FaToggleOn
+} from 'react-icons/fa';
+
 const FoodItems = () => {
   const { user } = useAuth();
   const [foodItems, setFoodItems] = useState([]);
@@ -30,6 +38,10 @@ const FoodItems = () => {
     isActive: ''
   });
 
+  // Error modal state
+  const [showErrorModal, setShowErrorModal] = useState(false);
+  const [errorModalMessage, setErrorModalMessage] = useState('');
+
   // Validation errors for the create/edit form
   const [validationErrors, setValidationErrors] = useState({});
 
@@ -41,11 +53,19 @@ const FoodItems = () => {
   });
 
   const categories = [
-    { value: 'BREAKFAST', label: 'Breakfast' },
-    { value: 'LUNCH', label: 'Lunch' },
-    { value: 'DINNER', label: 'Dinner' },
-    { value: 'SNACK', label: 'Snack' }
+    { value: 'BREAKFAST', label: 'Breakfast', icon: <FaSun /> },
+    { value: 'LUNCH', label: 'Lunch', icon: <FaCloudSun /> },
+    { value: 'DINNER', label: 'Dinner', icon: <FaMoon /> },
+    { value: 'SNACK', label: 'Snack', icon: <FaCookieBite /> }
   ];
+
+  // Show API error in modal
+  useEffect(() => {
+    if (error) {
+      setErrorModalMessage(error);
+      setShowErrorModal(true);
+    }
+  }, [error]);
 
   const fetchFoodItems = useCallback(async () => {
     try {
@@ -224,34 +244,51 @@ const FoodItems = () => {
     return 'User';
   };
 
+  const getCategoryIcon = (category) => {
+    const cat = categories.find(c => c.value === category);
+    return cat ? cat.icon : <FaUtensils />;
+  };
+
   return (
     <Layout>
       <Container fluid>
         <Row className="mb-4">
           <Col>
-            <h2 className="text-orange">🍽️ Food Items</h2>
+            <h2 className="text-orange"><FaUtensils className="me-2" /> Food Items</h2>
             <p className="text-muted">Manage food menu items and prices</p>
           </Col>
           <Col className="text-end">
             <Button 
               variant="orange" 
               onClick={handleAddNew}
-              className="px-4"
+              className="px-4 d-inline-flex align-items-center"
             >
-              + Add Food Item
+              <FaPlus className="me-2" /> Add Food Item
             </Button>
           </Col>
         </Row>
 
-        {error && (
-          <Alert variant="danger" onClose={() => setError('')} dismissible>
-            <strong>Error:</strong> {error}
-          </Alert>
-        )}
+        {/* Error Modal (instead of top error alert) */}
+        <Modal show={showErrorModal} onHide={() => setShowErrorModal(false)} centered>
+          <Modal.Header closeButton>
+            <Modal.Title className="text-danger">
+              <FaExclamationTriangle className="me-2" /> Error
+            </Modal.Title>
+          </Modal.Header>
+          <Modal.Body>
+            <p>{errorModalMessage}</p>
+          </Modal.Body>
+          <Modal.Footer>
+            <Button variant="danger" onClick={() => setShowErrorModal(false)}>
+              OK
+            </Button>
+          </Modal.Footer>
+        </Modal>
 
+        {/* Success Message (still a dismissible alert) */}
         {success && (
           <Alert variant="success" onClose={() => setSuccess('')} dismissible>
-            <strong>Success:</strong> {success}
+            <strong><FaCheckCircle className="me-2" /> Success:</strong> {success}
           </Alert>
         )}
 
@@ -260,7 +297,7 @@ const FoodItems = () => {
             <Row className="mb-3">
               <Col md={4}>
                 <Form.Group>
-                  <Form.Label>Category</Form.Label>
+                  <Form.Label><FaFilter className="me-1" /> Category</Form.Label>
                   <Form.Select 
                     value={filter.category}
                     onChange={(e) => setFilter({...filter, category: e.target.value})}
@@ -276,7 +313,7 @@ const FoodItems = () => {
               </Col>
               <Col md={4}>
                 <Form.Group>
-                  <Form.Label>Status</Form.Label>
+                  <Form.Label><FaToggleOn className="me-1" /> Status</Form.Label>
                   <Form.Select 
                     value={filter.isActive}
                     onChange={(e) => setFilter({...filter, isActive: e.target.value})}
@@ -291,8 +328,9 @@ const FoodItems = () => {
                 <Button 
                   variant="outline-secondary"
                   onClick={() => setFilter({ category: '', isActive: '' })}
+                  className="d-inline-flex align-items-center"
                 >
-                  Clear Filters
+                  <FaTimes className="me-2" /> Clear Filters
                 </Button>
               </Col>
             </Row>
@@ -341,26 +379,28 @@ const FoodItems = () => {
                           <td>
                             <strong>{item.name}</strong>
                             <div className="text-muted small">
-                              ID: {item._id?.substring(item._id.length - 6)}
+                              <FaIdCard className="me-1" size={10} /> ID: {item._id?.substring(item._id.length - 6)}
                             </div>
                           </td>
                           <td>
-                            <Badge bg={getCategoryBadge(item.category)}>
-                              {item.category}
+                            <Badge bg={getCategoryBadge(item.category)} className="d-inline-flex align-items-center">
+                              {getCategoryIcon(item.category)} <span className="ms-1">{item.category}</span>
                             </Badge>
                           </td>
                           <td className="fw-bold">
-                            {formatPrice(item.price)}
+                            <FaMoneyBillWave className="me-1" size={12} /> {formatPrice(item.price)}
                           </td>
                           <td>
-                            <Badge bg={getStatusBadge(item.isActive)}>
+                            <Badge bg={getStatusBadge(item.isActive)} className="d-inline-flex align-items-center">
+                              {item.isActive ? <FaCheckCircle className="me-1" /> : <FaBan className="me-1" />}
                               {item.isActive ? 'Active' : 'Inactive'}
                             </Badge>
                           </td>
                           <td>
-                            {getCreatorName(item.createdBy)}
+                            <FaUser className="me-1" size={10} /> {getCreatorName(item.createdBy)}
                           </td>
                           <td>
+                            <FaCalendarAlt className="me-1" size={10} />
                             {item.createdAt ? new Date(item.createdAt).toLocaleDateString() : 'N/A'}
                           </td>
                           <td>
@@ -369,8 +409,8 @@ const FoodItems = () => {
                                 Actions
                               </Dropdown.Toggle>
                               <Dropdown.Menu>
-                                <Dropdown.Item onClick={() => handleEdit(item)}>
-                                  ✏️ Edit
+                                <Dropdown.Item onClick={() => handleEdit(item)} className="d-flex align-items-center">
+                                  <FaEdit className="me-2" /> Edit
                                 </Dropdown.Item>
                                 {item.isActive && (
                                   <Dropdown.Item 
@@ -378,9 +418,9 @@ const FoodItems = () => {
                                       setSelectedItem(item);
                                       setShowDeleteModal(true);
                                     }}
-                                    className="text-danger"
+                                    className="text-danger d-flex align-items-center"
                                   >
-                                    🗑️ Deactivate
+                                    <FaTrash className="me-2" /> Deactivate
                                   </Dropdown.Item>
                                 )}
                               </Dropdown.Menu>
@@ -488,8 +528,7 @@ const FoodItems = () => {
             <Modal.Title>Confirm Deactivation</Modal.Title>
           </Modal.Header>
           <Modal.Body>
-            Are you sure you want to deactivate <strong>{selectedItem?.name}</strong>?
-            <br />
+            <p>Are you sure you want to deactivate <strong>{selectedItem?.name}</strong>?</p>
             <small className="text-muted">
               This will make the item unavailable for new orders.
             </small>

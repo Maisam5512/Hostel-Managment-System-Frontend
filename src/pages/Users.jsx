@@ -5,6 +5,13 @@ import LoadingSpinner from '../components/common/LoadingSpinner';
 import { useApi } from '../hooks/useApi';
 import { useForm } from '../hooks/useForm';
 
+// Icons
+import {
+  FaUsers, FaCheckCircle, FaCrown, FaBan, FaPlus, FaFilter,
+  FaTimes, FaEdit, FaToggleOn, FaExclamationTriangle,
+  FaEnvelope, FaPhone, FaUser, FaKey, FaIdCard, FaCalendarAlt
+} from 'react-icons/fa';
+
 const Users = () => {
   const { callApi, loading, error, data } = useApi();
   const [users, setUsers] = useState([]);
@@ -14,6 +21,10 @@ const Users = () => {
   const [selectedUser, setSelectedUser] = useState(null);
   const [successMessage, setSuccessMessage] = useState('');
   const [filterRole, setFilterRole] = useState('');
+
+  // Error modal state
+  const [showErrorModal, setShowErrorModal] = useState(false);
+  const [errorModalMessage, setErrorModalMessage] = useState('');
 
   // Validation errors
   const [createErrors, setCreateErrors] = useState({});
@@ -41,6 +52,14 @@ const Users = () => {
     fetchRoles();
   }, []);
 
+  // Show API error in modal
+  useEffect(() => {
+    if (error) {
+      setErrorModalMessage(error);
+      setShowErrorModal(true);
+    }
+  }, [error]);
+
   const fetchUsers = async () => {
     try {
       const response = await callApi('get', '/users');
@@ -63,6 +82,9 @@ const Users = () => {
     }
   };
 
+  // Helper: validate phone – exactly 10 digits
+  const isValidPhone = (phone) => /^\d{10}$/.test(phone);
+
   // Validation function for create user
   const validateCreateForm = (formData) => {
     const errors = {};
@@ -72,7 +94,6 @@ const Users = () => {
     if (!formData.email || formData.email.trim() === '') {
       errors.email = 'Email is required';
     } else {
-      // Basic email format validation
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(formData.email)) {
         errors.email = 'Enter a valid email address';
@@ -85,6 +106,11 @@ const Users = () => {
     }
     if (!formData.roleId) {
       errors.roleId = 'Role is required';
+    }
+    if (!formData.phone) {
+      errors.phone = 'Phone number is required';
+    } else if (!isValidPhone(formData.phone)) {
+      errors.phone = 'Phone number must be exactly 10 digits';
     }
     return errors;
   };
@@ -106,11 +132,23 @@ const Users = () => {
     if (!formData.roleId) {
       errors.roleId = 'Role is required';
     }
+    if (!formData.phone) {
+      errors.phone = 'Phone number is required';
+    } else if (!isValidPhone(formData.phone)) {
+      errors.phone = 'Phone number must be exactly 10 digits';
+    }
     return errors;
   };
 
+  // Handle phone input – only digits, max 10
+  const handlePhoneChange = (e, formHook, field) => {
+    const value = e.target.value.replace(/\D/g, '');
+    if (value.length <= 10) {
+      formHook.setValues({ ...formHook.values, [field]: value });
+    }
+  };
+
   const handleCreateUser = async (formData) => {
-    // Validate
     const errors = validateCreateForm(formData);
     if (Object.keys(errors).length > 0) {
       setCreateErrors(errors);
@@ -136,7 +174,6 @@ const Users = () => {
   };
 
   const handleEditUser = async (formData) => {
-    // Validate
     const errors = validateEditForm(formData);
     if (Object.keys(errors).length > 0) {
       setEditErrors(errors);
@@ -160,11 +197,8 @@ const Users = () => {
 
   const handleToggleStatus = async (user) => {
     if (window.confirm(`Are you sure you want to ${user.isActive ? 'deactivate' : 'activate'} this user?`)) {
-      console.log('Toggled User Id', user._id );
-
       try {
-        const response = await callApi('patch', `/users/${user._id}/status`,{});
-        console.log('Toggle status response:', response);
+        const response = await callApi('patch', `/users/${user._id}/status`, {});
         if (response.message) {
           setSuccessMessage(`User ${user.isActive ? 'deactivated' : 'activated'} successfully!`);
           fetchUsers();
@@ -185,7 +219,7 @@ const Users = () => {
       phone: user.phone || '',
       isActive: user.isActive
     });
-    setEditErrors({}); // Clear previous errors
+    setEditErrors({});
     setShowEditModal(true);
   };
 
@@ -220,7 +254,7 @@ const Users = () => {
                 onClick={() => setShowCreateModal(true)}
                 className="d-flex align-items-center"
               >
-                <span className="me-2">+</span> Add New User
+                <FaPlus className="me-2" /> Add New User
               </Button>
             </div>
           </Col>
@@ -237,16 +271,22 @@ const Users = () => {
           </Row>
         )}
 
-        {/* Error Message */}
-        {error && (
-          <Row className="mb-3">
-            <Col>
-              <Alert variant="danger">
-                Error: {error}
-              </Alert>
-            </Col>
-          </Row>
-        )}
+        {/* Error Modal (instead of top error alert) */}
+        <Modal show={showErrorModal} onHide={() => setShowErrorModal(false)} centered>
+          <Modal.Header closeButton>
+            <Modal.Title className="text-danger">
+              <FaExclamationTriangle className="me-2" /> Error
+            </Modal.Title>
+          </Modal.Header>
+          <Modal.Body>
+            <p>{errorModalMessage}</p>
+          </Modal.Body>
+          <Modal.Footer>
+            <Button variant="danger" onClick={() => setShowErrorModal(false)}>
+              OK
+            </Button>
+          </Modal.Footer>
+        </Modal>
 
         {/* Stats Cards */}
         <Row className="mb-4">
@@ -259,7 +299,7 @@ const Users = () => {
                     <h3 className="mb-0">{users.length}</h3>
                   </div>
                   <div className="bg-primary-light p-2 rounded-circle">
-                    <span style={{ fontSize: '20px' }}>👥</span>
+                    <FaUsers size={20} className="text-primary" />
                   </div>
                 </div>
               </Card.Body>
@@ -274,7 +314,7 @@ const Users = () => {
                     <h3 className="mb-0">{users.filter(u => u.isActive).length}</h3>
                   </div>
                   <div className="bg-success-light p-2 rounded-circle">
-                    <span style={{ fontSize: '20px' }}>✅</span>
+                    <FaCheckCircle size={20} className="text-success" />
                   </div>
                 </div>
               </Card.Body>
@@ -294,7 +334,7 @@ const Users = () => {
                     </h3>
                   </div>
                   <div className="bg-warning-light p-2 rounded-circle">
-                    <span style={{ fontSize: '20px' }}>👑</span>
+                    <FaCrown size={20} className="text-warning" />
                   </div>
                 </div>
               </Card.Body>
@@ -309,7 +349,7 @@ const Users = () => {
                     <h3 className="mb-0">{users.filter(u => !u.isActive).length}</h3>
                   </div>
                   <div className="bg-danger-light p-2 rounded-circle">
-                    <span style={{ fontSize: '20px' }}>⛔</span>
+                    <FaBan size={20} className="text-danger" />
                   </div>
                 </div>
               </Card.Body>
@@ -321,7 +361,7 @@ const Users = () => {
         <Row className="mb-3">
           <Col md={4}>
             <Form.Group>
-              <Form.Label>Filter by Role</Form.Label>
+              <Form.Label><FaFilter className="me-1" /> Filter by Role</Form.Label>
               <Form.Select
                 value={filterRole}
                 onChange={(e) => setFilterRole(e.target.value)}
@@ -339,7 +379,7 @@ const Users = () => {
               onClick={() => setFilterRole('')}
               className="me-2"
             >
-              Clear Filters
+              <FaTimes className="me-1" /> Clear Filters
             </Button>
           </Col>
         </Row>
@@ -382,12 +422,12 @@ const Users = () => {
                                 </div>
                                 <div>
                                   <div className="fw-bold">{user.fullName}</div>
-                                  <div className="small text-muted">ID: {user._id?.slice(-6)}</div>
+                                  <div className="small text-muted"><FaIdCard className="me-1" size={8} /> ID: {user._id?.slice(-6)}</div>
                                 </div>
                               </div>
                             </td>
                             <td>
-                              <div>{user.email}</div>
+                              <div><FaEnvelope className="me-1" size={10} /> {user.email}</div>
                             </td>
                             <td>
                               <Badge bg="info" className="px-2 py-1">
@@ -395,18 +435,20 @@ const Users = () => {
                               </Badge>
                             </td>
                             <td>
-                              <div>{user.phone || 'Not set'}</div>
+                              <div>{user.phone ? <><FaPhone className="me-1" size={10} /> {user.phone}</> : 'Not set'}</div>
                             </td>
                             <td>
                               <Badge 
                                 bg={user.isActive ? 'success' : 'danger'} 
                                 className="px-2 py-1"
                               >
+                                {user.isActive ? <FaCheckCircle className="me-1" /> : <FaBan className="me-1" />}
                                 {user.isActive ? 'Active' : 'Inactive'}
                               </Badge>
                             </td>
                             <td>
                               <div className="small text-muted">
+                                <FaCalendarAlt className="me-1" size={10} />
                                 {new Date(user.createdAt).toLocaleDateString()}
                               </div>
                             </td>
@@ -417,13 +459,14 @@ const Users = () => {
                                   size="sm"
                                   onClick={() => openEditModal(user)}
                                 >
-                                  Edit
+                                  <FaEdit className="me-1" /> Edit
                                 </Button>
                                 <Button
                                   variant={user.isActive ? 'outline-warning' : 'outline-success'}
                                   size="sm"
                                   onClick={() => handleToggleStatus(user)}
                                 >
+                                  <FaToggleOn className="me-1" />
                                   {user.isActive ? 'Deactivate' : 'Activate'}
                                 </Button>
                               </div>
@@ -510,14 +553,21 @@ const Users = () => {
               </Col>
               <Col md={6}>
                 <Form.Group className="mb-3">
-                  <Form.Label>Phone Number</Form.Label>
+                  <Form.Label>Phone Number * (10 digits)</Form.Label>
                   <Form.Control
                     type="text"
                     name="phone"
                     value={values.phone}
-                    onChange={handleChange}
-                    placeholder="Enter phone number"
+                    onChange={(e) => handlePhoneChange(e, { values, setValues }, 'phone')}
+                    placeholder="e.g., 9876543210"
+                    maxLength="10"
+                    isInvalid={!!createErrors.phone}
+                    required
                   />
+                  <Form.Control.Feedback type="invalid">{createErrors.phone}</Form.Control.Feedback>
+                  <Form.Text className="text-muted">
+                    {values.phone.length}/10 digits
+                  </Form.Text>
                 </Form.Group>
               </Col>
             </Row>
@@ -620,14 +670,17 @@ const Users = () => {
             <Row>
               <Col md={6}>
                 <Form.Group className="mb-3">
-                  <Form.Label>Phone Number</Form.Label>
+                  <Form.Label>Phone Number * (10 digits)</Form.Label>
                   <Form.Control
                     type="text"
                     name="phone"
                     value={editForm.values.phone}
-                    onChange={editForm.handleChange}
-                    placeholder="Enter phone number"
+                    onChange={(e) => handlePhoneChange(e, editForm, 'phone')}
+                    maxLength="10"
+                    isInvalid={!!editErrors.phone}
+                    required
                   />
+                  <Form.Control.Feedback type="invalid">{editErrors.phone}</Form.Control.Feedback>
                 </Form.Group>
               </Col>
               <Col md={6}>

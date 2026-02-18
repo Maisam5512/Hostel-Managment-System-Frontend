@@ -5,6 +5,13 @@ import LoadingSpinner from '../components/common/LoadingSpinner';
 import { useApi } from '../hooks/useApi';
 import { useForm } from '../hooks/useForm';
 
+// Icons
+import {
+  FaLock, FaCheckCircle, FaBox, FaBan, FaPlus, FaFilter,
+  FaTimes, FaEdit, FaToggleOn, FaTrash, FaExclamationTriangle,
+  FaCalendarAlt, FaInfoCircle, FaKey, FaCube
+} from 'react-icons/fa';
+
 const Permissions = () => {
   const { callApi, loading, error, data } = useApi();
   const [permissions, setPermissions] = useState([]);
@@ -13,6 +20,10 @@ const Permissions = () => {
   const [selectedPermission, setSelectedPermission] = useState(null);
   const [successMessage, setSuccessMessage] = useState('');
   const [filterModule, setFilterModule] = useState('');
+
+  // Error modal state
+  const [showErrorModal, setShowErrorModal] = useState(false);
+  const [errorModalMessage, setErrorModalMessage] = useState('');
 
   // Validation errors
   const [createErrors, setCreateErrors] = useState({});
@@ -35,6 +46,14 @@ const Permissions = () => {
   useEffect(() => {
     fetchPermissions();
   }, []);
+
+  // Show API error in modal
+  useEffect(() => {
+    if (error) {
+      setErrorModalMessage(error);
+      setShowErrorModal(true);
+    }
+  }, [error]);
 
   const fetchPermissions = async () => {
     try {
@@ -180,7 +199,7 @@ const Permissions = () => {
                 onClick={() => setShowCreateModal(true)}
                 className="d-flex align-items-center"
               >
-                <span className="me-2">+</span> Add New Permission
+                <FaPlus className="me-2" /> Add New Permission
               </Button>
             </div>
           </Col>
@@ -197,16 +216,22 @@ const Permissions = () => {
           </Row>
         )}
 
-        {/* Error Message */}
-        {error && (
-          <Row className="mb-3">
-            <Col>
-              <Alert variant="danger">
-                Error: {error}
-              </Alert>
-            </Col>
-          </Row>
-        )}
+        {/* Error Modal (instead of top error alert) */}
+        <Modal show={showErrorModal} onHide={() => setShowErrorModal(false)} centered>
+          <Modal.Header closeButton>
+            <Modal.Title className="text-danger">
+              <FaExclamationTriangle className="me-2" /> Error
+            </Modal.Title>
+          </Modal.Header>
+          <Modal.Body>
+            <p>{errorModalMessage}</p>
+          </Modal.Body>
+          <Modal.Footer>
+            <Button variant="danger" onClick={() => setShowErrorModal(false)}>
+              OK
+            </Button>
+          </Modal.Footer>
+        </Modal>
 
         {/* Stats Cards */}
         <Row className="mb-4">
@@ -219,7 +244,7 @@ const Permissions = () => {
                     <h3 className="mb-0">{permissions.length}</h3>
                   </div>
                   <div className="bg-primary-light p-2 rounded-circle">
-                    <span style={{ fontSize: '20px' }}>🔐</span>
+                    <FaLock size={20} className="text-primary" />
                   </div>
                 </div>
               </Card.Body>
@@ -234,7 +259,7 @@ const Permissions = () => {
                     <h3 className="mb-0">{permissions.filter(p => p.isActive).length}</h3>
                   </div>
                   <div className="bg-success-light p-2 rounded-circle">
-                    <span style={{ fontSize: '20px' }}>✅</span>
+                    <FaCheckCircle size={20} className="text-success" />
                   </div>
                 </div>
               </Card.Body>
@@ -249,7 +274,7 @@ const Permissions = () => {
                     <h3 className="mb-0">{modules.length}</h3>
                   </div>
                   <div className="bg-warning-light p-2 rounded-circle">
-                    <span style={{ fontSize: '20px' }}>📦</span>
+                    <FaBox size={20} className="text-warning" />
                   </div>
                 </div>
               </Card.Body>
@@ -264,7 +289,7 @@ const Permissions = () => {
                     <h3 className="mb-0">{permissions.filter(p => !p.isActive).length}</h3>
                   </div>
                   <div className="bg-danger-light p-2 rounded-circle">
-                    <span style={{ fontSize: '20px' }}>⛔</span>
+                    <FaBan size={20} className="text-danger" />
                   </div>
                 </div>
               </Card.Body>
@@ -276,7 +301,7 @@ const Permissions = () => {
         <Row className="mb-3">
           <Col md={4}>
             <Form.Group>
-              <Form.Label>Filter by Module</Form.Label>
+              <Form.Label><FaFilter className="me-1" /> Filter by Module</Form.Label>
               <Form.Select
                 value={filterModule}
                 onChange={(e) => setFilterModule(e.target.value)}
@@ -294,7 +319,7 @@ const Permissions = () => {
               onClick={() => setFilterModule('')}
               className="me-2"
             >
-              Clear Filters
+              <FaTimes className="me-1" /> Clear Filters
             </Button>
           </Col>
         </Row>
@@ -330,7 +355,7 @@ const Permissions = () => {
                             <td>
                               <div className="d-flex align-items-center">
                                 <div className="me-2">
-                                  <span style={{ fontSize: '16px' }}>🔐</span>
+                                  <FaLock className="text-secondary" />
                                 </div>
                                 <div>
                                   <div className="fw-bold">{permission.name}</div>
@@ -339,12 +364,12 @@ const Permissions = () => {
                             </td>
                             <td>
                               <Badge bg="secondary" className="px-2 py-1">
-                                {permission.key}
+                                <FaKey className="me-1" size={10} /> {permission.key}
                               </Badge>
                             </td>
                             <td>
                               <Badge bg="info" className="px-2 py-1">
-                                {permission.module}
+                                <FaCube className="me-1" size={10} /> {permission.module}
                               </Badge>
                             </td>
                             <td>
@@ -357,11 +382,13 @@ const Permissions = () => {
                                 bg={permission.isActive ? 'success' : 'danger'} 
                                 className="px-2 py-1"
                               >
+                                {permission.isActive ? <FaCheckCircle className="me-1" /> : <FaBan className="me-1" />}
                                 {permission.isActive ? 'Active' : 'Inactive'}
                               </Badge>
                             </td>
                             <td>
                               <div className="small text-muted">
+                                <FaCalendarAlt className="me-1" size={10} />
                                 {new Date(permission.createdAt).toLocaleDateString()}
                               </div>
                             </td>
@@ -372,13 +399,14 @@ const Permissions = () => {
                                   size="sm"
                                   onClick={() => openEditModal(permission)}
                                 >
-                                  Edit
+                                  <FaEdit className="me-1" /> Edit
                                 </Button>
                                 <Button
                                   variant={permission.isActive ? 'outline-warning' : 'outline-success'}
                                   size="sm"
                                   onClick={() => handleToggleStatus(permission)}
                                 >
+                                  <FaToggleOn className="me-1" />
                                   {permission.isActive ? 'Disable' : 'Enable'}
                                 </Button>
                                 <Button
@@ -386,7 +414,7 @@ const Permissions = () => {
                                   size="sm"
                                   onClick={() => handleDeletePermission(permission)}
                                 >
-                                  Delete
+                                  <FaTrash className="me-1" /> Delete
                                 </Button>
                               </div>
                             </td>

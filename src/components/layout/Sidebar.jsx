@@ -3,6 +3,11 @@ import { Nav } from 'react-bootstrap';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { ROLES } from '../../constants/roles';
+import {
+  FaBuilding, FaTachometerAlt, FaUsers, FaHome, FaBed,
+  FaClipboardList, FaLock, FaUserTie, FaUser, FaUtensils,
+  FaClipboard, FaMoneyBillWave, FaUserFriends, FaArrowLeft
+} from 'react-icons/fa';
 import '../../styles/sidebar.css';
 
 const Sidebar = ({ onClose }) => {
@@ -10,18 +15,18 @@ const Sidebar = ({ onClose }) => {
   const { hasRole } = useAuth();
 
   const allMenuItems = [
-    { path: '/dashboard', icon: '📊', label: 'Dashboard', roles: [ROLES.ADMIN, ROLES.MEMBER] },
-    { path: '/members', icon: '👥', label: 'Members', roles: [ROLES.ADMIN] },
-    { path: '/rooms', icon: '🏠', label: 'Rooms', roles: [ROLES.ADMIN] },
-    { path: '/beds', icon: '🛏️', label: 'Beds', roles: [ROLES.ADMIN] },
-    { path: '/bed-assignments', icon: '📋', label: 'Bed Assignments', roles: [ROLES.ADMIN] },
-    { path: '/permissions', icon: '🔐', label: 'Permissions', roles: [ROLES.ADMIN] },
-    { path: '/roles', icon: '👑', label: 'Roles', roles: [ROLES.ADMIN] },
-    { path: '/users', icon: '👨‍💼', label: 'Users', roles: [ROLES.ADMIN] },
-    { path: '/food-items', icon: '🍽️', label: 'Food Items', roles: [ROLES.ADMIN, ROLES.MESS_INCHARGE] },
-    { path: '/food-orders', icon: '📝', label: 'Food Orders', roles: [ROLES.ADMIN, ROLES.MESS_INCHARGE] },
-    { path: '/bills', icon: '💰', label: 'Bills', roles: [ROLES.ADMIN, ROLES.ACCOUNTANT] },
-    { path: '/visitors', icon: '👥', label: 'Visitors', roles: [ROLES.ADMIN, ROLES.SECURITY] },
+    { path: '/dashboard', icon: <FaTachometerAlt />, label: 'Dashboard', roles: [ROLES.ADMIN, ROLES.MEMBER] },
+    { path: '/members', icon: <FaUsers />, label: 'Members', roles: [ROLES.ADMIN] },
+    { path: '/rooms', icon: <FaHome />, label: 'Rooms', roles: [ROLES.ADMIN] },
+    { path: '/beds', icon: <FaBed />, label: 'Beds', roles: [ROLES.ADMIN] },
+    { path: '/bed-assignments', icon: <FaClipboardList />, label: 'Bed Assignments', roles: [ROLES.ADMIN] },
+    { path: '/permissions', icon: <FaLock />, label: 'Permissions', roles: [ROLES.ADMIN] },
+    { path: '/roles', icon: <FaUserTie />, label: 'Roles', roles: [ROLES.ADMIN] },
+    { path: '/users', icon: <FaUser />, label: 'Users', roles: [ROLES.ADMIN] },
+    { path: '/food-items', icon: <FaUtensils />, label: 'Food Items', roles: [ROLES.ADMIN, ROLES.MESS_INCHARGE] },
+    { path: '/food-orders', icon: <FaClipboard />, label: 'Food Orders', roles: [ROLES.ADMIN, ROLES.MESS_INCHARGE] },
+    { path: '/bills', icon: <FaMoneyBillWave />, label: 'Bills', roles: [ROLES.ADMIN, ROLES.ACCOUNTANT] },
+    { path: '/visitors', icon: <FaUserFriends />, label: 'Visitors', roles: [ROLES.ADMIN, ROLES.SECURITY] },
   ];
 
   const menuItems = allMenuItems.filter(item => {
@@ -44,7 +49,6 @@ const Sidebar = ({ onClose }) => {
               as={Link}
               to={item.path}
               className={`sidebar-link mb-2 ${location.pathname === item.path ? 'active' : ''}`}
-              // No onClick – sidebar stays open when navigating
             >
               <span className="sidebar-icon me-3">{item.icon}</span>
               <span className="sidebar-label">{item.label}</span>
@@ -72,7 +76,7 @@ const Sidebar = ({ onClose }) => {
           }}
           aria-label="Close sidebar"
         >
-          ←
+          <FaArrowLeft />
         </button>
       </div>
 
