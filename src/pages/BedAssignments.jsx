@@ -683,9 +683,8 @@ const BedAssignments = () => {
                   <div className="small">
                     <strong>Selected Member:</strong> {selectedMember.fullName}
                   </div>
-                  <div className="small">
-                    <strong>CNIC:</strong> {selectedMember.cnic}
-                  </div>
+                
+
                   <div className="small">
                     <strong>Phone:</strong> {selectedMember.phone}
                   </div>
@@ -861,7 +860,7 @@ const BedAssignments = () => {
                     <FaPhone className="me-2" /> <strong>Phone:</strong> {enrichedMember?.phone || selectedAssignment.member_Id?.phone || 'N/A'}
                   </p>
                   <p className="mb-1">
-                    <FaIdCard className="me-2" /> <strong>CNIC:</strong> {enrichedMember?.cnic || selectedAssignment.member_Id?.cnic || 'N/A'}
+                    <FaIdCard className="me-2" /> <strong>ID:</strong> {enrichedMember?.cnic || selectedAssignment.member_Id?.cnic || 'N/A'}
                   </p>
                   <p className="mb-3">
                     <FaUniversity className="me-2" /> <strong>Institute:</strong> {enrichedMember?.instituteName || selectedAssignment.member_Id?.instituteName || 'N/A'}

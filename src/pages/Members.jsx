@@ -157,6 +157,7 @@ const Members = () => {
     try {
       const response = await memberService.getAllMembers();
       if (response.success) {
+
         const transformedMembers = response.data.map(member => ({
           _id: member._id,
           user: { 
@@ -187,6 +188,8 @@ const Members = () => {
         }));
         
         setMembers(transformedMembers);
+        console.log('Fetched members:', transformedMembers);
+        console.log("actual response data:", response.data);
         await fetchMemberRoomDetails(transformedMembers);
       }
     } catch (err) {

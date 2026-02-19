@@ -6,13 +6,17 @@ export const useApi = () => {
   const [error, setError] = useState(null);
   const [data, setData] = useState(null);
 
-  const callApi = useCallback(async (method, endpoint, requestData = null) => {
+  // FIX: Default value ko null ki jagah undefined rakhein
+  const callApi = useCallback(async (method, endpoint, requestData = {}) => {
     setLoading(true);
     setError(null);
     
     try {
       let response;
-      switch (method.toLowerCase()) {
+      const lowerMethod = method.toLowerCase();
+
+      // Switch case mein check karein ke body kis mein bhejni hai
+      switch (lowerMethod) {
         case 'get':
           response = await api.get(endpoint);
           break;
@@ -23,10 +27,12 @@ export const useApi = () => {
           response = await api.put(endpoint, requestData);
           break;
         case 'patch':
+          // Agar requestData undefined hoga, to Axios body nahi bhejay ga
           response = await api.patch(endpoint, requestData);
           break;
         case 'delete':
-          response = await api.delete(endpoint);
+          // Delete mein agar data bhejni ho to { data: requestData } use hota hai
+          response = await api.delete(endpoint, { data: requestData });
           break;
         default:
           throw new Error(`Unsupported method: ${method}`);

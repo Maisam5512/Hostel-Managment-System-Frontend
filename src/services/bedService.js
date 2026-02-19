@@ -53,7 +53,7 @@ export const bedService = {
 
   updateBedStatus: async (id, status) => {
     try {
-      const response = await api.patch(`/beds/${id}/status`, { status });
+      const response = await api.patch(`/beds/${id}/status`, { status:status });
       return response;
     } catch (error) {
       console.error('Error updating bed status:', error);

@@ -4,7 +4,8 @@ export const ROLES = {
   MEMBER: 'MEMBER',
   MESS_INCHARGE: 'MESS_INCHARGE',
   SECURITY: 'SECURITY',
-  MANAGER: 'MANAGER', 
+  MANAGER: 'MANAGER',
+  WARDEN: 'WARDEN',
 };
 
 export const ROLE_NAMES = {
@@ -14,6 +15,7 @@ export const ROLE_NAMES = {
   [ROLES.MESS_INCHARGE]: 'Mess Incharge',
   [ROLES.SECURITY]: 'Security',
    [ROLES.MANAGER]: 'Manager',
+    [ROLES.WARDEN]: 'Warden',
 };
 
 // Default route for each role – used after login and on dashboard 403
@@ -24,6 +26,7 @@ export const DEFAULT_ROUTES = {
   [ROLES.MESS_INCHARGE]: '/food-orders',
   [ROLES.SECURITY]: '/visitors',
   [ROLES.MANAGER]: '/dashboard',
+  [ROLES.WARDEN]: '/bedAssignments',
 };
 
 
@@ -38,5 +41,6 @@ export const ROLE_CODE_MAP = {
   'mess_incharge': ROLES.MESS_INCHARGE,
   'security': ROLES.SECURITY,
   'manager': ROLES.MANAGER,
+  'warden': ROLES.WARDEN,
   // Add any other variations you observe from your backend
 };

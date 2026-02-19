@@ -67,9 +67,10 @@ const Beds = () => {
 
   const fetchRooms = async () => {
     try {
-      const response = await callApi('get', '/rooms');
+      const response = await callApi('get', '/rooms ');
       if (response.success) {
-        setRooms(response.data.filter(room => room.isActive));
+        setRooms(response.data);
+        console.log('Fetched rooms:', response.data);
       }
     } catch (err) {
       console.error('Error fetching rooms:', err);
@@ -79,9 +80,13 @@ const Beds = () => {
   // Helper to get room details from rooms state
   const getRoomDetails = (roomId) => {
     if (!roomId) return null;
+   // console.log('Getting details for roomId:', roomId);
     // roomId could be an object or a string
     const id = typeof roomId === 'object' ? roomId._id : roomId;
+   // console.log('Finding room with id:', id);
+    //    console.log('Found room details:', rooms.find(r => r._id === id));    
     return rooms.find(r => r._id === id);
+
   };
 
   // Validation function for create bed
@@ -138,7 +143,10 @@ const Beds = () => {
     if (window.confirm(`Are you sure you want to ${bed.isActive ? 'deactivate' : 'activate'} this bed?`)) {
       try {
         const endpoint = bed.isActive ? 'delete' : 'patch';
+        console.log('Toggling bed status for bed:', bed);
+        console.log('API endpoint:', endpoint);
         const url = bed.isActive ? `/beds/${bed._id}` : `/beds/${bed._id}/activate`;
+        console.log('API URL:', url);
         const response = await callApi(endpoint, url);
         if (response.success) {
           setSuccessMessage(`Bed ${bed.isActive ? 'deactivated' : 'activated'} successfully!`);
@@ -365,6 +373,7 @@ const Beds = () => {
                       ) : (
                         filteredBeds.map((bed) => {
                           const roomDetails = getRoomDetails(bed.room_Id);
+                        //  console.log('Rendering room details 123:',roomDetails);
                           const roomNumber = roomDetails?.roomNumber || bed.room_Id?.roomNumber || 'N/A';
                           const floor = roomDetails?.floor || bed.room_Id?.floor || 'N/A';
                           const roomType = roomDetails?.roomType || bed.room_Id?.roomType || 'N/A';
