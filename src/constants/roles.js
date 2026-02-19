@@ -6,6 +6,7 @@ export const ROLES = {
   SECURITY: 'SECURITY',
   MANAGER: 'MANAGER',
   WARDEN: 'WARDEN',
+  GUEST: 'GUEST', // Naye users ke liye default
 };
 
 export const ROLE_NAMES = {
@@ -14,25 +15,24 @@ export const ROLE_NAMES = {
   [ROLES.MEMBER]: 'Member',
   [ROLES.MESS_INCHARGE]: 'Mess Incharge',
   [ROLES.SECURITY]: 'Security',
-   [ROLES.MANAGER]: 'Manager',
-    [ROLES.WARDEN]: 'Warden',
+  [ROLES.MANAGER]: 'Manager',
+  [ROLES.WARDEN]: 'Warden',
+  [ROLES.GUEST]: 'Guest/New User', 
 };
 
-// Default route for each role – used after login and on dashboard 403
+// Yahan humne fallback define kar diya hai
 export const DEFAULT_ROUTES = {
   [ROLES.ADMIN]: '/dashboard',
   [ROLES.ACCOUNTANT]: '/bills',
-  [ROLES.MEMBER]: '/dashboard',        // member dashboard shows only self info
+  [ROLES.MEMBER]: '/dashboard',
   [ROLES.MESS_INCHARGE]: '/food-orders',
   [ROLES.SECURITY]: '/visitors',
   [ROLES.MANAGER]: '/dashboard',
-  [ROLES.WARDEN]: '/bedAssignments',
+  [ROLES.WARDEN]: '/bed-assignments',
+  'DEFAULT': '/dashboard', // Agar role list mein na ho toh yahan jaye
 };
 
-
-
 export const ROLE_CODE_MAP = {
-  // Exact matches (case‑insensitive)
   'admin': ROLES.ADMIN,
   'administrator': ROLES.ADMIN,
   'accountant': ROLES.ACCOUNTANT,
@@ -42,5 +42,12 @@ export const ROLE_CODE_MAP = {
   'security': ROLES.SECURITY,
   'manager': ROLES.MANAGER,
   'warden': ROLES.WARDEN,
-  // Add any other variations you observe from your backend
+};
+
+/**
+ * Helper function jo safe route return karega
+ * Isay login component mein use karein: navigate(getSafeDefaultRoute(userRole))
+ */
+export const getSafeDefaultRoute = (roleCode) => {
+  return DEFAULT_ROUTES[roleCode] || DEFAULT_ROUTES['DEFAULT'];
 };

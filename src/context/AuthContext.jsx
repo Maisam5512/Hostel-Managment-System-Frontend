@@ -1,6 +1,7 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { authService } from '../services/authService';
-import { ROLE_CODE_MAP } from '../constants/roles';
+// ROLES aur DEFAULT_ROUTES ko bhi import karein taake fallback use ho sake
+import { ROLE_CODE_MAP, ROLES, DEFAULT_ROUTES } from '../constants/roles';
 
 const AuthContext = createContext({});
 
@@ -22,23 +23,20 @@ export const AuthProvider = ({ children }) => {
           } catch (e) {
             console.error('Failed to parse stored user', e);
           }
-          // We have a cached user → show UI immediately
           setLoading(false);
-          // Then refresh the profile in the background
+          
           try {
             const userData = await authService.getProfile();
             setUser(userData);
             localStorage.setItem('user', JSON.stringify(userData));
           } catch (error) {
             console.error('Failed to fetch user profile:', error);
-            // If the token is invalid, clear everything
             localStorage.removeItem('token');
             localStorage.removeItem('user');
             setToken(null);
             setUser(null);
           }
         } else {
-          // No cached user → we must wait for the profile fetch
           try {
             const userData = await authService.getProfile();
             setUser(userData);
@@ -52,7 +50,6 @@ export const AuthProvider = ({ children }) => {
           }
         }
       } else {
-        // No token → nothing to load
         setLoading(false);
       }
     };
@@ -67,12 +64,9 @@ export const AuthProvider = ({ children }) => {
 
       localStorage.setItem('token', authToken);
       setToken(authToken);
-
-      // Store the user immediately (login response may be incomplete)
       setUser(userData);
       localStorage.setItem('user', JSON.stringify(userData));
 
-      // Fetch full profile in the background
       authService.getProfile()
         .then(fullProfile => {
           setUser(fullProfile);
@@ -98,25 +92,40 @@ export const AuthProvider = ({ children }) => {
     window.location.href = '/login';
   };
 
+  // --- UPDATED LOGIC START ---
   const getUserRoleCode = () => {
     if (!user) return null;
 
     let rawRole = null;
-
     if (typeof user.role === 'object' && user.role !== null) {
       rawRole = user.role.code || user.role.name || null;
     } else {
       rawRole = user.role || null;
     }
 
-    if (!rawRole) return null;
+    // Agar role bilkul missing hai, toh default Member assign kar dein
+    if (!rawRole) return ROLES.MEMBER;
 
     const roleStr = rawRole.toString().trim();
     const lowerRole = roleStr.toLowerCase();
     const baseRole = lowerRole.replace(/_\d+$/, '');
+    
+    // Check karein ke mapped roles mein hai ya nahi
     const mapped = ROLE_CODE_MAP[baseRole] || ROLE_CODE_MAP[lowerRole];
-    return mapped || roleStr.toUpperCase();
+    
+    if (mapped) return mapped;
+
+    // Agar role map nahi hua (matlab naya role hai), 
+    // toh check karein ke kya iska koi default route exist karta hai
+    const upperRole = roleStr.toUpperCase();
+    if (DEFAULT_ROUTES[upperRole]) {
+      return upperRole;
+    }
+
+    // Kuch bhi match na ho toh ROLES.MEMBER par fall back karein taake blank screen na aaye
+    return ROLES.MEMBER; 
   };
+  // --- UPDATED LOGIC END ---
 
   const hasRole = (roleCode) => {
     const userRole = getUserRoleCode();

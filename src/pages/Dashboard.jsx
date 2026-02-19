@@ -507,7 +507,7 @@
 
 
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react'; // added useRef
 import { Row, Col, Card, Badge, Button, Alert, ProgressBar } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
 import Layout from '../components/layout/Layout';
@@ -524,36 +524,46 @@ import {
 } from 'react-icons/fa';
 
 const Dashboard = () => {
-  const { user, loading: authLoading, hasRole } = useAuthHook();
+  const { user, loading: authLoading, hasRole, getUserRoleCode } = useAuthHook();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
   const [stats, setStats] = useState(null);
+  
+  // Is ref se hum loop ko rokengay
+  const isRedirecting = useRef(false);
 
-  // Redirect non‑admin users
-  const redirectNonAdmin = () => {
-    const roleCode = hasRole(ROLES.ACCOUNTANT) ? ROLES.ACCOUNTANT :
-                     hasRole(ROLES.MESS_INCHARGE) ? ROLES.MESS_INCHARGE :
-                     hasRole(ROLES.SECURITY) ? ROLES.SECURITY :
-                     hasRole(ROLES.MEMBER) ? ROLES.MEMBER :
-                     hasRole(ROLES.MANAGER) ? ROLES.MANAGER : null;
+  const redirectNonAdmin = useCallback(() => {
+    if (isRedirecting.current) return;
+    
+    isRedirecting.current = true;
+    const roleCode = getUserRoleCode?.() || (
+      hasRole(ROLES.ACCOUNTANT) ? ROLES.ACCOUNTANT :
+      hasRole(ROLES.MESS_INCHARGE) ? ROLES.MESS_INCHARGE :
+      hasRole(ROLES.SECURITY) ? ROLES.SECURITY :
+      hasRole(ROLES.MEMBER) ? ROLES.MEMBER :
+      hasRole(ROLES.MANAGER) ? ROLES.MANAGER : null
+    );
+    
     const defaultRoute = DEFAULT_ROUTES[roleCode] || '/bills';
     navigate(defaultRoute, { replace: true });
-  };
+  }, [navigate, getUserRoleCode, hasRole]);
+
+  // Access Control Effect (Sirf 1 baar chalega jab auth loading khatam hogi)
+  useEffect(() => {
+    if (!authLoading && !hasRole(ROLES.ADMIN)) {
+      redirectNonAdmin();
+    }
+  }, [authLoading, hasRole, redirectNonAdmin]);
 
   const fetchDashboardStats = async () => {
-    if (!hasRole(ROLES.ADMIN)) {
-      redirectNonAdmin();
-      return;
-    }
+    if (!hasRole(ROLES.ADMIN)) return;
 
     try {
       setLoading(true);
       setError(null);
-      
       const response = await dashboardService.getDashboardStats();
-      
       if (response.success && response.data) {
         setStats(response.data);
       } else {
@@ -561,18 +571,8 @@ const Dashboard = () => {
       }
     } catch (err) {
       console.error('Error fetching dashboard stats:', err);
-      if (err.message?.includes('403') || 
-          err.message?.includes('Access denied') || 
-          err.message?.includes('permission')) {
+      if (err.message?.includes('403') || err.message?.includes('permission')) {
         redirectNonAdmin();
-        return;
-      }
-      if (err.message?.includes('Network error')) {
-        setError('Cannot connect to server. Please check your internet connection.');
-      } else if (err.message?.includes('401') || err.message?.includes('Session expired')) {
-        setError('Your session has expired. Please login again.');
-      } else if (err.message?.includes('404')) {
-        setError('Dashboard data not available yet. Please refresh to generate stats.');
       } else {
         setError(err.message || 'Failed to load dashboard data');
       }
@@ -582,10 +582,7 @@ const Dashboard = () => {
   };
 
   const refreshDashboardStats = async () => {
-    if (!hasRole(ROLES.ADMIN)) {
-      redirectNonAdmin();
-      return;
-    }
+    if (!hasRole(ROLES.ADMIN)) return;
     try {
       setRefreshing(true);
       const response = await dashboardService.refreshDashboardStats();
@@ -596,17 +593,19 @@ const Dashboard = () => {
         setError('Failed to refresh dashboard');
       }
     } catch (err) {
-      console.error('Error refreshing dashboard:', err);
       setError(err.message || 'Failed to refresh dashboard');
     } finally {
       setRefreshing(false);
     }
   };
 
+  // Data Fetching Effect
   useEffect(() => {
-    fetchDashboardStats();
+    if (!authLoading && hasRole(ROLES.ADMIN)) {
+      fetchDashboardStats();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [authLoading]); 
 
   if (authLoading || (loading && !stats && hasRole(ROLES.ADMIN))) {
     return (
@@ -619,59 +618,25 @@ const Dashboard = () => {
   }
 
   if (!hasRole(ROLES.ADMIN)) {
-    redirectNonAdmin();
     return null;
   }
 
-  if (error && !stats) {
-    return (
-      <Layout>
-        <div className="mb-4">
-          <h2 className="text-dark mb-1">Dashboard Overview</h2>
-          <p className="text-muted mb-3">Welcome back, {user?.fullName || 'Admin'}!</p>
-        </div>
-        <Card className="border-0 shadow-sm">
-          <Card.Body className="text-center py-5">
-            <div className="mb-4">
-              <FaChartLine size={64} className="text-muted" />
-            </div>
-            <h4 className="text-danger mb-3">Unable to Load Dashboard</h4>
-            <p className="text-muted mb-4">{error}</p>
-            <div className="d-flex justify-content-center gap-3">
-              <Button variant="primary" onClick={fetchDashboardStats} disabled={loading}>
-                Retry
-              </Button>
-              <Button variant="outline-primary" onClick={refreshDashboardStats} disabled={refreshing}>
-                {refreshing ? 'Refreshing...' : 'Generate Stats'}
-              </Button>
-            </div>
-          </Card.Body>
-        </Card>
-      </Layout>
-    );
-  }
-
+  // --- Formatting logic (Keep as is) ---
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
     const date = new Date(dateString);
     return date.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
+      year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
     });
   };
 
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: 'INR',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
+      style: 'currency', currency: 'INR', minimumFractionDigits: 0, maximumFractionDigits: 0,
     }).format(amount || 0);
   };
 
+  // --- Stats Mappings (Keep as is) ---
   const mainStatsCards = [
     {
       title: 'Total Members',

@@ -40,7 +40,7 @@ const AppContent = () => {
         </ProtectedRoute>
       } />
       <Route path="/bed-assignments" element={
-        <ProtectedRoute allowedRoles={[ROLES.ADMIN]}>
+        <ProtectedRoute allowedRoles={[ROLES.ADMIN, ROLES.WARDEN]}>
           <BedAssignments />
         </ProtectedRoute>
       } />

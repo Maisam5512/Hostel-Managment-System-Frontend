@@ -222,13 +222,13 @@ const Roles = () => {
                 <h2 className="text-dark mb-1">Roles Management</h2>
                 <p className="text-muted">Manage user roles and permissions assignment</p>
               </div>
-              <Button 
+              {/* <Button 
                 variant="orange" 
                 onClick={() => setShowCreateModal(true)}
                 className="d-flex align-items-center"
               >
                 <FaPlus className="me-2" /> Add New Role
-              </Button>
+              </Button> */}
             </div>
           </Col>
         </Row>

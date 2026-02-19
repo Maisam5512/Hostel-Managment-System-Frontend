@@ -19,7 +19,7 @@ const Sidebar = ({ onClose }) => {
     { path: '/members', icon: <FaUsers />, label: 'Members', roles: [ROLES.ADMIN] },
     { path: '/rooms', icon: <FaHome />, label: 'Rooms', roles: [ROLES.ADMIN] },
     { path: '/beds', icon: <FaBed />, label: 'Beds', roles: [ROLES.ADMIN] },
-    { path: '/bed-assignments', icon: <FaClipboardList />, label: 'Bed Assignments', roles: [ROLES.ADMIN] },
+    { path: '/bed-assignments', icon: <FaClipboardList />, label: 'Bed Assignments', roles: [ROLES.ADMIN, ROLES.WARDEN] },
     { path: '/permissions', icon: <FaLock />, label: 'Permissions', roles: [ROLES.ADMIN] },
     { path: '/roles', icon: <FaUserTie />, label: 'Roles', roles: [ROLES.ADMIN] },
     { path: '/users', icon: <FaUser />, label: 'Users', roles: [ROLES.ADMIN] },

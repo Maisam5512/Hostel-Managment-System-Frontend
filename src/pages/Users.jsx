@@ -34,7 +34,7 @@ const Users = () => {
     fullName: '',
     email: '',
     password: '',
-    roleId: '',
+    role: '',
     phone: '',
     isActive: true
   });
@@ -42,7 +42,7 @@ const Users = () => {
   const editForm = useForm({
     fullName: '',
     email: '',
-    roleId: '',
+    role: '',
     phone: '',
     isActive: true
   });
@@ -104,8 +104,8 @@ const Users = () => {
     } else if (formData.password.length < 6) {
       errors.password = 'Password must be at least 6 characters';
     }
-    if (!formData.roleId) {
-      errors.roleId = 'Role is required';
+    if (!formData.role) {
+      errors.role = 'Role is required';
     }
     if (!formData.phone) {
       errors.phone = 'Phone number is required';
@@ -129,8 +129,8 @@ const Users = () => {
         errors.email = 'Enter a valid email address';
       }
     }
-    if (!formData.roleId) {
-      errors.roleId = 'Role is required';
+    if (!formData.role) {
+      errors.role = 'Role is required';
     }
     if (!formData.phone) {
       errors.phone = 'Phone number is required';
@@ -215,7 +215,7 @@ const Users = () => {
     editForm.setValues({
       fullName: user.fullName,
       email: user.email,
-      roleId: user.role?._id || user.role,
+      role: user.role?._id || user.role,
       phone: user.phone || '',
       isActive: user.isActive
     });
@@ -225,8 +225,8 @@ const Users = () => {
 
   const filteredUsers = filterRole
     ? users.filter(user => {
-        const userRoleId = user.role?._id || user.role;
-        return userRoleId === filterRole;
+        const userrole = user.role?._id || user.role;
+        return userrole === filterRole;
       })
     : users;
 
@@ -576,10 +576,10 @@ const Users = () => {
                 <Form.Group className="mb-3">
                   <Form.Label>Role *</Form.Label>
                   <Form.Select
-                    name="roleId"
-                    value={values.roleId}
+                    name="role"
+                    value={values.role}
                     onChange={handleChange}
-                    isInvalid={!!createErrors.roleId}
+                    isInvalid={!!createErrors.role}
                     required
                   >
                     <option value="">Select a role</option>
@@ -587,7 +587,7 @@ const Users = () => {
                       <option key={role._id} value={role._id}>{role.name}</option>
                     ))}
                   </Form.Select>
-                  <Form.Control.Feedback type="invalid">{createErrors.roleId}</Form.Control.Feedback>
+                  <Form.Control.Feedback type="invalid">{createErrors.role}</Form.Control.Feedback>
                 </Form.Group>
               </Col>
               <Col md={6}>
@@ -687,10 +687,10 @@ const Users = () => {
                 <Form.Group className="mb-3">
                   <Form.Label>Role *</Form.Label>
                   <Form.Select
-                    name="roleId"
-                    value={editForm.values.roleId}
+                    name="role"
+                    value={editForm.values.role}
                     onChange={editForm.handleChange}
-                    isInvalid={!!editErrors.roleId}
+                    isInvalid={!!editErrors.role}
                     required
                   >
                     <option value="">Select a role</option>
@@ -698,7 +698,7 @@ const Users = () => {
                       <option key={role._id} value={role._id}>{role.name}</option>
                     ))}
                   </Form.Select>
-                  <Form.Control.Feedback type="invalid">{editErrors.roleId}</Form.Control.Feedback>
+                  <Form.Control.Feedback type="invalid">{editErrors.role}</Form.Control.Feedback>
                 </Form.Group>
               </Col>
             </Row>
